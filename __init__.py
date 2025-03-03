@@ -1,0 +1,1 @@
+from comfyui_flux_collection_advanced.flux_image_upscaler import ImageUpscaler

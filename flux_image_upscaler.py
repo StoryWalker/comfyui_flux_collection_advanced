@@ -3,11 +3,12 @@ import comfy.utils
 import folder_paths
 from comfy import model_management
 from comfy.cli_args import args
-from .utils import (  # Reemplaza 'your_project' con el nombre correcto de tu proyecto o módulo
+from comfy.utils import (  # Reemplaza 'your_project' con el nombre correcto de tu proyecto o módulo
     load_torch_file_safe,
     state_dict_prefix_replace,
     ProgressBar
 )
+from spandrel import ModelLoader, ImageModelDescriptor
 
 
 class ImageUpscaler:
