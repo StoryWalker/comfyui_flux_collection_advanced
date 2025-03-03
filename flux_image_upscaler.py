@@ -11,7 +11,7 @@ from comfy.utils import (  # Reemplaza 'your_project' con el nombre correcto de 
 from spandrel import ModelLoader, ImageModelDescriptor
 
 
-class ImageUpscaler:
+class FluxImageUpscaler:
     """
     A class for upscaling images using various models and methods.
 
