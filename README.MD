@@ -1,0 +1,1 @@
+This is a collection focused in give a little more flexibility in the use of Flux models.
