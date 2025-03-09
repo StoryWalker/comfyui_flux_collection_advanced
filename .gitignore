@@ -1,2 +1,56 @@
+# Archivos de compilación
+build/
+dist/
+out/
+*.o
+*.obj
+*.exe
+*.dll
+
+# Archivos de registro
+*.log
+*.tmp
+
+# Dependencias de Node.js
+node_modules/
+
+# Dependencias de Python
 __pycache__/
+*.pyc
+*.pyd
+.venv/
+
+# Archivos de configuración
+config.ini
+.env
+
+# Archivos de sistemas operativos
+.DS_Store
+Thumbs.db
+
+# Archivos temporales de editores
+*.swp
+*.swo
+.idea/
+*.vscode/
+
+# Archivos de datos sensibles
+*.csv
+*.json
+*.sqlite
+*.pem
+
+# Archivos de paquetes
+*.egg-info/
+*.whl
+
+# Archivos especificos
+secret_key.txt
+debug.log
 instructions_to_commits.md
+
+# Excepciones (archivos que no se deben ignorar)
+!important.txt
+
+# Directorios de caches
+.cache/
