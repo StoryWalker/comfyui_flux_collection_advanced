@@ -1,8 +1,8 @@
 ---
 name: Node Refactor
-about: Refactor new node proposal
-title: "Refactor: New nodes"
-labels: Refactor
+about: Refactor node
+title: "Node Refactor: Optimize code"
+labels: refactor
 assignees: ''
 ---
 
