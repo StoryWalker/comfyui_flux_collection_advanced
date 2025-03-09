@@ -1,7 +1,7 @@
 ---
-name: Node Proposal
+name: Node Creation
 about: New node proposal
-title: "Proposal: New node"
+title: "Node Creation: New node"
 labels: new node proposal
 assignees: ''
 ---
