@@ -4,7 +4,6 @@ about: Propuesta de refactorización de código
 title: "Refactorizar: [Descripción breve]"
 labels: refactorización
 assignees: ''
-
 ---
 
 **Descripción del problema:**
