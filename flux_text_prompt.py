@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import re
 import logging
@@ -12,21 +13,25 @@ from comfy.comfy_types import IO, ComfyNodeABC, InputTypeDict # Keep necessary i
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- Get the directory of the current Python file ---
+# This assumes the script is run within the custom node's folder structure
+current_node_directory = os.path.dirname(__file__)
+
 class FluxTextPrompt(ComfyNodeABC):
     """
     A ComfyUI node designed to encode a textual prompt using a specified CLIP model.
 
-    Processes text, applies styles, tokenizes/encodes with CLIP, and applies guidance.
+    Processes text, applies up to four selected styles from a CSV file,
+    tokenizes/encodes with CLIP, and applies guidance.
     Adheres to SOLID principles and provides robust error handling.
     """
 
     # ComfyUI Node Identification
     CATEGORY = "flux_collection_advanced"
-    # *** Use the STRING IDENTIFIER for the return type ***
     RETURN_TYPES = ("CONDITIONING",)
-    OUTPUT_TOOLTIPS = ("The conditioning tensor derived from the encoded text.",)
+    OUTPUT_TOOLTIPS = ("The conditioning tensor derived from the encoded text and styles.",) # Updated tooltip
     FUNCTION = "encode_text_with_styles"
-    DESCRIPTION = "Encodes text with styles using CLIP for FLUX models."
+    DESCRIPTION = "Encodes text with up to 4 styles using CLIP for FLUX models." # Updated description
 
     # --- Class Level Attributes ---
     _cached_styles: Dict[str, List[str]] = {}
@@ -37,7 +42,7 @@ class FluxTextPrompt(ComfyNodeABC):
 
     @classmethod
     def load_styles_csv(cls, styles_path: str) -> Dict[str, List[str]]:
-        """ Loads style definitions from a CSV file. (See previous implementation) """
+        """ Loads style definitions from a CSV file. """
         styles: Dict[str, List[str]] = {}
         if not os.path.exists(styles_path):
             raise FileNotFoundError(f"Styles file not found at: {styles_path}")
@@ -63,9 +68,10 @@ class FluxTextPrompt(ComfyNodeABC):
 
     @classmethod
     def _ensure_styles_loaded(cls) -> None:
-        """ Internal method to load styles if not already loaded. (See previous implementation) """
+        """ Internal method to load styles if not already loaded. """
         if not cls._styles_loaded:
-            styles_file_path = os.path.join(folder_paths.base_path, cls._STYLES_FILENAME)
+            #styles_file_path = os.path.join(folder_paths.base_path, cls._STYLES_FILENAME) #Original path ComfyUI
+            styles_file_path = os.path.join(current_node_directory, cls._STYLES_FILENAME)
             try:
                 logger.info(f"Attempting to load styles from: {styles_file_path}")
                 cls._cached_styles = cls.load_styles_csv(styles_file_path)
@@ -87,11 +93,11 @@ class FluxTextPrompt(ComfyNodeABC):
 
     @classmethod
     def INPUT_TYPES(cls: Type['FluxTextPrompt']) -> InputTypeDict:
-        """ Defines the required input types for the node. """
+        """ Defines the required input types for the node, including four styles. """
         cls._ensure_styles_loaded()
         style_names = list(cls._cached_styles.keys())
         if not style_names: style_names = ["Error: No Styles Available"]
-        clip_type_identifier = "CLIP" # String identifier for CLIP type
+        clip_type_identifier = "CLIP"
 
         return {
             "required": {
@@ -100,23 +106,29 @@ class FluxTextPrompt(ComfyNodeABC):
                 "style1": (style_names, {"tooltip": "First style."}),
                 "style2": (style_names, {"tooltip": "Second style."}),
                 "style3": (style_names, {"tooltip": "Third style."}),
+                # --- Added style4 ---
+                "style4": (style_names, {"tooltip": "Fourth style."}),
                 "guidance": (IO.FLOAT, {"default": 3.5, "min": 0.0, "max": 100.0, "step": 0.1, "tooltip": "Guidance scale."})
             }
         }
 
-    def _validate_inputs(self, clip: Any, text: str, style1: str, style2: str, style3: str) -> None:
-        """ Validates core inputs. """
+    def _validate_inputs(self, clip: Any, text: str, style1: str, style2: str, style3: str, style4: str) -> None: # Added style4
+        """ Validates core inputs, including the four styles. """
         if clip is None: raise ValueError("Invalid CLIP input: Received None.")
         if not isinstance(text, str): raise ValueError(f"Invalid text input: Expected string, got {type(text).__name__}")
-        if self._error_loading_styles and style1 not in self._DEFAULT_ERROR_STYLE:
-             logger.warning(f"Style loading failed. Style '{style1}' might be invalid.")
+
+        # Check all four selected styles
+        styles_to_check = [style1, style2, style3, style4] # Include style4
+
+        if self._error_loading_styles and any(s not in self._DEFAULT_ERROR_STYLE for s in styles_to_check):
+             logger.warning("Style loading previously failed. Selected styles might be invalid.")
         elif not self._error_loading_styles:
-             for style_name in [style1, style2, style3]:
+             for style_name in styles_to_check:
                  if style_name not in self._cached_styles:
-                      raise ValueError(f"Selected style '{style_name}' not found.")
+                      raise ValueError(f"Selected style '{style_name}' not found in loaded styles.")
 
     def _get_style_prompt(self, style_name: str) -> str:
-        """ Retrieves the positive prompt string for a style. """
+        """ Retrieves the positive prompt string for a given style name. """
         if style_name in self._DEFAULT_ERROR_STYLE: return ""
         if style_name in self._cached_styles:
             try:
@@ -127,10 +139,11 @@ class FluxTextPrompt(ComfyNodeABC):
             except Exception as e: logger.warning(f"Error accessing style '{style_name}': {e}."); return ""
         else: logger.warning(f"Style '{style_name}' not found."); return ""
 
-    def _construct_full_prompt(self, text: str, style1: str, style2: str, style3: str) -> str:
-        """ Combines base text with style prompts. """
-        prompts = [self._get_style_prompt(s) for s in [style1, style2, style3]]
-        style_parts = [p for p in prompts if p and p.strip()]
+    def _construct_full_prompt(self, text: str, style1: str, style2: str, style3: str, style4: str) -> str: # Added style4
+        """ Combines base text with prompts from the selected styles. """
+        # Include style4 in the list of styles to process
+        prompts = [self._get_style_prompt(s) for s in [style1, style2, style3, style4]]
+        style_parts = [p for p in prompts if p and p.strip()] # Filter out empty strings
         full_prompt = text.strip()
         if style_parts:
             separator = ', ' if full_prompt else ''
@@ -156,18 +169,35 @@ class FluxTextPrompt(ComfyNodeABC):
         try: return node_helpers.conditioning_set_values(conditioning, {"guidance": guidance})
         except Exception as e: logger.exception("Guidance application error."); raise RuntimeError(f"Applying guidance failed: {e}")
 
-    # Keep internal type hints using Any where specific types weren't importable
-    def encode_text_with_styles(self, clip: Any, text: str, style1: str, style2: str, style3: str, guidance: float) -> Tuple[Any,]:
-        """ Main execution function. """
+    def encode_text_with_styles(self, clip: Any, text: str, style1: str, style2: str, style3: str, style4: str, guidance: float) -> Tuple[Any,]: # Added style4
+        """
+        Main execution function: Encodes text combined with up to four styles.
+
+        Args:
+            clip: The CLIP model instance.
+            text: The base text prompt.
+            style1: Name of the first selected style.
+            style2: Name of the second selected style.
+            style3: Name of the third selected style.
+            style4: Name of the fourth selected style. # Added style4
+            guidance: The guidance scale factor.
+
+        Returns:
+            A tuple containing the final conditioning tensor.
+        """
         node_name = self.__class__.__name__
         logger.info(f"Executing node: {node_name}")
         try:
-            self._validate_inputs(clip, text, style1, style2, style3)
-            full_prompt = self._construct_full_prompt(text, style1, style2, style3)
+            # Pass style4 to validation and prompt construction
+            self._validate_inputs(clip, text, style1, style2, style3, style4)
+            full_prompt = self._construct_full_prompt(text, style1, style2, style3, style4)
+
             if not full_prompt: logger.warning("Empty prompt after combining text/styles.")
+
             tokens = self._tokenize_text(clip, full_prompt)
             conditioning = self._encode_tokens(clip, tokens)
             final_conditioning = self._apply_guidance(conditioning, guidance)
+
             logger.info(f"{node_name} execution successful.")
             # The actual returned object's type should match "CONDITIONING"
             return (final_conditioning,)
@@ -180,4 +210,4 @@ class FluxTextPrompt(ComfyNodeABC):
 # --- ComfyUI Registration ---
 # Ensure this class is registered in your __init__.py
 # NODE_CLASS_MAPPINGS = { "FluxTextPrompt": FluxTextPrompt }
-# NODE_DISPLAY_NAME_MAPPINGS = { "FluxTextPrompt": "Flux Text Prompt Styler" }
+# NODE_DISPLAY_NAME_MAPPINGS = { "FluxTextPrompt": "Flux Text Prompt Styler (4 Styles)" } # Updated display name example
