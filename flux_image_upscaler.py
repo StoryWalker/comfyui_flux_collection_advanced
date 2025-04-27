@@ -54,7 +54,7 @@ class FluxImageUpscaler:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "upscale_image"
-    CATEGORY = "fluxCollection"
+    CATEGORY = "flux_collection_advanced"
 
     def upscale_image(self, model_name, image, upscale_method, scale_by):
         """

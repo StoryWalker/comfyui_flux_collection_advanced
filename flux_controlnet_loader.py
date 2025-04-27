@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # --- Main Node Class ---
-class FluxLoadControlNetPreprocessor(nodes.ComfyNodeABC):
+class FluxControlNetLoader(nodes.ComfyNodeABC):
     """
     A ComfyUI node that loads an image (from file or upload), applies a
     selected ControlNet preprocessor, extracts an optional mask, and loads
@@ -73,7 +73,7 @@ class FluxLoadControlNetPreprocessor(nodes.ComfyNodeABC):
         except Exception as e: logger.exception(f"Failed to load module '{module_name}' from {module_path}: {e}"); return None
 
     @classmethod
-    def _initialize_preprocessors(cls: Type['FluxLoadControlNetPreprocessor']) -> None:
+    def _initialize_preprocessors(cls: Type['FluxControlNetLoader']) -> None:
         """ Finds and loads the ControlNet preprocessor module and initializes necessary components. """
         # (Implementation unchanged)
         if cls._initialized: return
@@ -113,7 +113,7 @@ class FluxLoadControlNetPreprocessor(nodes.ComfyNodeABC):
             logger.exception(f"{cls.__name__} initialization failed: {e}")
 
     @classmethod
-    def INPUT_TYPES(cls: Type['FluxLoadControlNetPreprocessor']) -> Dict[str, Any]:
+    def INPUT_TYPES(cls: Type['FluxControlNetLoader']) -> Dict[str, Any]:
         """ Defines the input types for the node. """
         if not cls._initialized:
             cls._initialize_preprocessors()
@@ -141,13 +141,13 @@ class FluxLoadControlNetPreprocessor(nodes.ComfyNodeABC):
                 # Input from original DiffControlNetLoader
                 "model": ("MODEL", {"tooltip": "The base diffusion model (needed for ControlNet loading)."}),
                 "control_net_name": (controlnet_list, {"tooltip": "Select the ControlNet model file to load."} ),
-
-                # Inputs from LoadImage
-                "image": (image_list, {"image_upload": True, "tooltip": "Select image file or upload."}),
-
+                
                 # Inputs from original AV_ControlNetPreprocessor
                 "preprocessor": (cls._available_preprocessors, {"tooltip": "Select the ControlNet preprocessor to apply."}),
                 # "sd_version" removed as it was only for name suggestion
+
+                # Inputs from LoadImage
+                "image": (image_list, {"image_upload": True, "tooltip": "Select image file or upload."}),
             },
             "optional": {
                 # Optional Inputs from original AV_ControlNetPreprocessor
@@ -300,12 +300,12 @@ class FluxLoadControlNetPreprocessor(nodes.ComfyNodeABC):
 # --- ComfyUI Registration ---
 # Example (in __init__.py):
 #
-# from .your_combined_node_file import FluxLoadControlNetPreprocessor
+# from .your_combined_node_file import FluxControlNetLoader
 #
 # NODE_CLASS_MAPPINGS = {
-#    "FluxLoadControlNetPreprocessor": FluxLoadControlNetPreprocessor
+#    "FluxControlNetLoader": FluxControlNetLoader
 # }
 #
 # NODE_DISPLAY_NAME_MAPPINGS = {
-#    "FluxLoadControlNetPreprocessor": "Load Image, Preprocess & Load CNet (Flux)" # Updated display name
+#    "FluxControlNetLoader": "Load Image, Preprocess & Load CNet (Flux)" # Updated display name
 # }
