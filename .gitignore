@@ -35,7 +35,7 @@ Thumbs.db
 *.vscode/
 
 # Archivos de datos sensibles
-*.csv
+#*.csv
 *.json
 *.sqlite
 *.pem
@@ -45,6 +45,7 @@ Thumbs.db
 *.whl
 
 # Archivos especificos
+styles2.csv
 secret_key.txt
 debug.log
 instructions_to_commits.md
