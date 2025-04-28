@@ -6,6 +6,11 @@ from custom_nodes.comfyui_flux_collection_advanced.flux_controlnet_loader import
 from custom_nodes.comfyui_flux_collection_advanced.flux_controlnet_apply import FluxControlNetApply
 from custom_nodes.comfyui_flux_collection_advanced.flux_controlnet_apply_preview import FluxControlNetApplyPreview
 from custom_nodes.comfyui_flux_collection_advanced.flux_image_preview import FluxImagePreview
+from custom_nodes.comfyui_flux_collection_advanced.flux_image_upscaler import FluxImageUpscaler
+
+# --- Version Information ---
+__version__ = "0.1.0" # <<-- AÑADIR ESTO
+# 
 
 # --- Added Line ---
 # Tells ComfyUI to serve static files (like JS) from the 'js' folder
@@ -21,7 +26,7 @@ NODE_CLASS_MAPPINGS = {
     "FluxControlNetApply": FluxControlNetApply,
     "FluxControlNetApplyPreview": FluxControlNetApplyPreview,
     "FluxImagePreview": FluxImagePreview,
-    #"FluxImageUpscaler": FluxImageUpscaler, # Keeping commented out as before
+    "FluxImageUpscaler": FluxImageUpscaler, 
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -32,10 +37,10 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "FluxControlNetApply": "FluxControlNetApply",
     "FluxControlNetApplyPreview": "FluxControlNetApplyPreview",
     "FluxImagePreview": "FluxImagePreview", 
-    #"FluxImageUpscaler": "FluxImageUpscaler", # Keeping commented out as before
+    "FluxImageUpscaler": "FluxImageUpscaler", 
 }
 
 # Optional: Message to confirm nodes loaded (useful for debugging)
 print("------------------------------------------")
-print("Flux Collection Advanced Nodes Loaded")
+print(f"Flux Collection Advanced Nodes Loaded - Version: {__version__}")
 print("------------------------------------------")
