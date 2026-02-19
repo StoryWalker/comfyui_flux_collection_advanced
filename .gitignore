@@ -28,6 +28,7 @@ setup_env.bat
 # TEAM_PRO
 team_pro/
 references/
+old_versions/
 
 # Archivos de sistemas operativos
 .DS_Store
