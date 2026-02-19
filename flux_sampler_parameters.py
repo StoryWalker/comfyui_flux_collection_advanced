@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Tuple, Optional, Callable # Necessary types
+from typing import Any, Dict, Tuple, Optional, Callable
 
 # Necessary third-party imports
 import torch
@@ -14,176 +14,226 @@ import nodes # For inheritance and MAX_RESOLUTION
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Determine default compute device for latents
-try:
-    if torch.cuda.is_available():
-        DEFAULT_DEVICE = comfy.model_management.intermediate_device()
-    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-        DEFAULT_DEVICE = torch.device("mps")
-    else:
-        DEFAULT_DEVICE = torch.device("cpu")
-except AttributeError:
-     DEFAULT_DEVICE = comfy.model_management.text_encoder_device() if comfy.model_management.has_text_encoder_device() else torch.device("cpu")
-
-logger.info(f"Using device for Flux/SD3 latent generation: {DEFAULT_DEVICE}")
-
 class FluxSamplerParameters(nodes.ComfyNodeABC):
     """
-    A ComfyUI node that generates an empty latent tensor suitable for
-    Flux/SD3 type models and then samples (denoises) it using parameters
-    and logic similar to KSampler, utilizing only positive conditioning.
+    Advanced Flux sampler that auto-detects model architecture (channels and text dimensions).
+    Automatically handles padding for conditioning mismatches (e.g., 4096 to 6144)
+    to support GGUF and distilled variants.
     """
 
     # --- Node Metadata for ComfyUI ---
-    FUNCTION = "generate_and_sample"
+    FUNCTION = "generate_sample_and_decode"
     CATEGORY = "flux_collection_advanced"
-    DESCRIPTION = "Generates empty SD3/Flux latent and samples (positive only)."
-    RETURN_TYPES = ("LATENT",)
-    OUTPUT_TOOLTIPS = ("The final sampled (denoised) latent tensor.",)
+    DESCRIPTION = "Advanced Flux Sampler with auto-arch detection and conditioning padding."
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
 
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
         """ Define the required input types for the node. """
-        model_type = "MODEL"
-        conditioning_type = "CONDITIONING"
-
         return {
             "required": {
-                "width": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16, "tooltip": "Width (pixels) of the latent image to generate."}),
-                "height": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16, "tooltip": "Height (pixels) of the latent image to generate."}),
-                "batch_size": ("INT", {"default": 1, "min": 1, "max": 64, "tooltip": "Number of latent images to generate and sample in parallel."}),
-                "model": (model_type, {"tooltip": "The model (e.g., Flux, SD3) to use for sampling."}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True, "tooltip": "Random seed for noise generation."}),
-                "steps": ("INT", {"default": 28, "min": 1, "max": 10000, "tooltip": "Number of sampling (denoising) steps."}),
-                "cfg": ("FLOAT", {"default": 4.5, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01, "tooltip": "Classifier-Free Guidance scale."}),
-                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"tooltip": "Sampling algorithm to use."}),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"tooltip": "Noise scheduler."}),
-                "positive": (conditioning_type, {"tooltip": "Positive conditioning (prompt embeddings)."}),
-                "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01, "tooltip": "Denoising strength (1.0 = full sampling)."}),
+                "width": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16}),
+                "height": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16}),
+                "batch_size": ("INT", {"default": 1, "min": 1, "max": 64}),
+                "model": ("MODEL",),
+                "positive": ("CONDITIONING",),
+                "vae": ("VAE",),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True}),
+                "steps": ("INT", {"default": 28, "min": 1, "max": 10000}),
+                "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01}),
+                "sampler_name": (comfy.samplers.KSampler.SAMPLERS,),
+                "scheduler": (comfy.samplers.KSampler.SCHEDULERS,),                
+                "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             }
         }
 
-    # --- Internal Methods (Core Logic) ---
+    # --- Core Logic Methods ---
 
-    def _generate_empty_latent(self, width: int, height: int, batch_size: int) -> Dict[str, torch.Tensor]:
-        """ Generates an empty latent tensor for Flux/SD3 (16 channels). """
-        if width % 8 != 0 or height % 8 != 0:
-            logger.warning(f"Width ({width}) or height ({height}) are not multiples of 8.")
-        latent_channels = 16
-        latent_height = height // 8
-        latent_width = width // 8
+    def _get_device(self) -> torch.device:
+        return comfy.model_management.get_torch_device()
+
+    def _get_model_info(self, model: Any) -> Dict[str, int]:
+        """ Detects image channels and text input features from the model architecture. """
+        info = {"channels": 16, "text_dim": 4096}
         try:
-            latent = torch.zeros([batch_size, latent_channels, latent_height, latent_width], device=DEFAULT_DEVICE)
-            logger.info(f"Generated empty latent: {latent.shape} on {latent.device}")
-            return {"samples": latent}
+            base_model = getattr(model, "model", None)
+            diffusion_model = getattr(base_model, "diffusion_model", None)
+            
+            # 1. Detect Image Channels
+            img_in = getattr(diffusion_model, "img_in", None)
+            if img_in is not None:
+                in_f = getattr(img_in, "in_features", 64)
+                if in_f == 64: info["channels"] = 16
+                elif in_f == 128: info["channels"] = 128
+                else: info["channels"] = 16 # Default fallback
+                logger.info(f"Detected image channels: {info['channels']} (img_in: {in_f})")
+
+            # 2. Detect Text Dimension
+            txt_in = getattr(diffusion_model, "txt_in", None)
+            if txt_in is not None:
+                txt_f = getattr(txt_in, "in_features", 4096)
+                info["text_dim"] = txt_f
+                logger.info(f"Detected model text dimension: {info['text_dim']}")
         except Exception as e:
-            logger.exception("Failed to generate empty latent tensor.")
-            raise RuntimeError(f"Latent creation failed: {e}") from e
+            logger.warning(f"Metadata detection failed: {e}. Using Flux defaults.")
+        return info
+
+    def _prepare_conditioning(self, conditioning: Any, target_dim: int) -> Any:
+        """ 
+        Ensures conditioning matches the model's expected text dimension.
+        Pads with zeros if there is a mismatch (e.g., from 4096 to 6144).
+        """
+        if not isinstance(conditioning, list): return conditioning
+        
+        new_conditioning = []
+        for item in conditioning:
+            t_orig = item[0]
+            current_dim = t_orig.shape[-1]
+            
+            if current_dim != target_dim:
+                logger.info(f"Padding conditioning: {current_dim} -> {target_dim}")
+                # Pad the last dimension with zeros
+                padding = (0, target_dim - current_dim)
+                t_padded = torch.nn.functional.pad(t_orig, padding, "constant", 0)
+                new_conditioning.append([t_padded, item[1]])
+            else:
+                new_conditioning.append(item)
+        return new_conditioning
+
+    def _generate_empty_latent(self, width: int, height: int, batch_size: int, device: torch.device, channels: int) -> Dict[str, torch.Tensor]:
+        compression = 16
+        latent = torch.zeros([batch_size, channels, height // compression, width // compression], device=device)
+        logger.info(f"Generated Flux latent: {latent.shape} on {device}")
+        return {"samples": latent}
 
     def _sample_latent(self, model: Any, seed: int, steps: int, cfg: float,
                        sampler_name: str, scheduler: str, positive: Any,
                        initial_latent: Dict[str, torch.Tensor], denoise: float
-                       ) -> Tuple[Dict[str, torch.Tensor],]:
-        """
-        Executes the sampling logic (KSampler) on the initial latent, using only
-        positive conditioning. Adds checks for inputs before sampling.
-        """
+                       ) -> torch.Tensor:
         try:
             latent_image = initial_latent["samples"]
             model_device = model.load_device
-            logger.debug(f"Model device for sampling: {model_device}")
-
-            # Prepare noise
-            logger.debug(f"Preparing noise with seed: {seed}")
-            noise = comfy.sample.prepare_noise(latent_image, seed)
-            noise = noise.to(model_device)
-
-            # Prepare callback for previews
-            logger.debug("Preparing latent preview callback...")
-            preview_callback: Optional[Callable] = latent_preview.prepare_callback(model, steps)
-            logger.debug(f"Preview callback type: {type(preview_callback)}") # Log callback type
-
-            # Progress bar setting
-            disable_pbar = not comfy.utils.PROGRESS_BAR_ENABLED
-
-            # --- Input Validation & Logging before comfy.sample.sample ---
-            if positive is None:
-                logger.error("Positive conditioning input is None. Cannot proceed with sampling.")
-                raise ValueError("Positive conditioning cannot be None for sampling.")
-
-            logger.debug(f"Type of positive conditioning: {type(positive)}")
-            # You might add more detailed logging for conditioning structure if needed, e.g.:
-            # if isinstance(positive, list):
-            #    logger.debug(f"Length of positive conditioning list: {len(positive)}")
-            #    if len(positive) > 0:
-            #         logger.debug(f"Type of first element in positive conditioning: {type(positive[0])}")
-
-            logger.debug(f"Latent image shape before sampling: {latent_image.shape}, Device: {latent_image.device}")
-            logger.debug(f"Noise shape before sampling: {noise.shape}, Device: {noise.device}")
-            # --- End of Input Validation ---
-
-            # Execute main sampling, passing None for negative conditioning
-            logger.info(f"Starting sampling (positive only): {steps} steps, sampler={sampler_name}, scheduler={scheduler}, cfg={cfg}, denoise={denoise}")
+            noise = comfy.sample.prepare_noise(latent_image, seed).to(model_device)
+            preview_callback = latent_preview.prepare_callback(model, steps)
+            
             samples = comfy.sample.sample(
                 model=model, noise=noise, steps=steps, cfg=cfg,
                 sampler_name=sampler_name, scheduler=scheduler,
                 positive=positive, negative='',
-                latent_image=latent_image.to(model_device), # Ensure latent is on model device
+                latent_image=latent_image.to(model_device),
                 denoise=denoise, disable_noise=False, start_step=None, last_step=None,
                 force_full_denoise=False, noise_mask=None,
-                callback=preview_callback, disable_pbar=disable_pbar, seed=seed
+                callback=preview_callback, disable_pbar=not comfy.utils.PROGRESS_BAR_ENABLED, seed=seed
             )
+            if samples is None: raise RuntimeError("Sampler returned None.")
+            return samples
+        except Exception as e:
+            logger.exception(f"Sampling error: {e}")
+            raise RuntimeError(f"Sampling process failed: {e}") from e
 
-            # Check if sampler returned None unexpectedly (highly unlikely but defensive)
-            if samples is None:
-                 logger.error("comfy.sample.sample returned None unexpectedly.")
-                 raise RuntimeError("Sampling failed: Sampler returned None.")
+    def _decode_latent(self, vae: Any, latent_samples: torch.Tensor) -> torch.Tensor:
+        """ 
+        Decodes the sampled latent into an image using the provided VAE.
+        Enhanced to handle Nested Tensors, 5D Video Latents, and dynamic channel matching.
+        """
+        logger.info("Starting VAE decoding process...")
+        try:
+            # 1. Handle Nested Tensors (Standard ComfyUI practice)
+            if hasattr(latent_samples, "is_nested") and latent_samples.is_nested:
+                latent_samples = latent_samples.unbind()[0]
 
-            # Move result back to default device and package output
-            samples = samples.to(DEFAULT_DEVICE)
-            out_latent = initial_latent.copy()
-            out_latent["samples"] = samples
-            logger.info("Sampling completed.")
-            return (out_latent,)
+            # 2. Handle 5D Video Latents [B, C, T, H, W] -> [B*T, C, H, W]
+            # Some advanced models (like Wan 2.1) output temporal dimensions
+            original_shape = latent_samples.shape
+            is_video = len(original_shape) == 5
+            if is_video:
+                b, c, t, h, w = original_shape
+                # Move temporal dim to batch: [B, T, C, H, W] -> [B*T, C, H, W]
+                latent_samples = latent_samples.permute(0, 2, 1, 3, 4).reshape(-1, c, h, w)
+                logger.info(f"Video latent detected. Reshaped from {original_shape} to {latent_samples.shape}")
+
+            # 3. Dynamic Decoding with Channel Fallback
+            pixels = None
+            try:
+                # Attempt decoding with full channels first
+                pixels = vae.decode(latent_samples)
+            except RuntimeError as e:
+                # If it's a channel mismatch error, try smart slicing
+                if "channels" in str(e) or "size" in str(e):
+                    logger.warning(f"Initial decoding failed ({e}). Attempting channel matching fallback...")
+                    
+                    # Detect expected channels from VAE architecture
+                    vae_channels = 16
+                    try:
+                        if hasattr(vae, "first_stage_model"):
+                            decoder = getattr(vae.first_stage_model, "decoder", None)
+                            conv_in = getattr(decoder, "conv_in", None)
+                            if conv_in is not None:
+                                vae_channels = getattr(conv_in, "in_channels", 16)
+                    except: pass
+                    
+                    current_ch = latent_samples.shape[1]
+                    if current_ch > vae_channels:
+                        logger.info(f"Slicing latent channels for VAE: {current_ch} -> {vae_channels}")
+                        pixels = vae.decode(latent_samples[:, :vae_channels, :, :])
+                    else:
+                        raise e
+                else:
+                    raise e
+
+            # 4. Handle 5D Output (Combine batches/frames)
+            if pixels is not None and len(pixels.shape) == 5:
+                # [B, T, H, W, C] -> [B*T, H, W, C]
+                pixels = pixels.reshape(-1, pixels.shape[-3], pixels.shape[-2], pixels.shape[-1])
+            
+            logger.info(f"Decoding successful. Final image shape: {pixels.shape}")
+            return pixels
 
         except Exception as e:
-            # Log the specific error before re-raising the generic one
-            logger.exception(f"Specific error during sampling: {e}")
-            raise RuntimeError(f"Sampling process failed: {e}") from e # Re-raise error
+            logger.exception(f"VAE decoding error: {e}")
+            raise RuntimeError(f"Decoding failed: {e}") from e
 
-    # --- Main Execution Function for ComfyUI ---
-    def generate_and_sample(self, width: int, height: int, batch_size: int,
-                            model: Any, seed: int, steps: int, cfg: float,
-                            sampler_name: str, scheduler: str,
-                            positive: Any, denoise: float = 1.0
-                            ) -> Tuple[Dict[str, torch.Tensor],]:
-        """
-        Orchestrates the generation of the empty latent and its subsequent sampling
-        (using only positive conditioning).
-        """
+    # --- Main Execution Function ---
+    def generate_sample_and_decode(self, width: int, height: int, batch_size: int,
+                                   model: Any, vae: Any, seed: int, steps: int, cfg: float,
+                                   sampler_name: str, scheduler: str,
+                                   positive: Any, denoise: float = 1.0
+                                   ) -> Tuple[torch.Tensor,]:
         node_name = self.__class__.__name__
         logger.info(f"Executing node: {node_name}")
+        
+        device = self._get_device()
+        
+        # 1. Detect Architecture
+        model_info = self._get_model_info(model)
+        
+        # 2. Adjust Conditioning (Padding if necessary)
+        positive = self._prepare_conditioning(positive, model_info["text_dim"])
+
         try:
-            logger.info("Step 1: Generating empty latent (Flux/SD3)...")
-            initial_latent_dict = self._generate_empty_latent(width, height, batch_size)
-            logger.info("Step 2: Starting sampling process (positive only)...")
-            final_latent_tuple = self._sample_latent(
+            # 3. Generate Latent
+            initial_latent_dict = self._generate_empty_latent(width, height, batch_size, device, model_info["channels"])
+            
+            # 4. Sample
+            sampled_latent = self._sample_latent(
                 model=model, seed=seed, steps=steps, cfg=cfg,
                 sampler_name=sampler_name, scheduler=scheduler,
                 positive=positive,
                 initial_latent=initial_latent_dict, denoise=denoise
             )
-            logger.info(f"{node_name} execution completed successfully.")
-            return final_latent_tuple
-        except (ValueError, RuntimeError) as e:
-             logger.error(f"Execution failed in {node_name}: {e}")
-             raise
-        except Exception as e:
-             logger.exception(f"Unexpected critical error in {node_name}: {e}")
-             raise RuntimeError(f"Unexpected critical error in {node_name}: {e}") from e
+            
+            # 5. Decode
+            image = self._decode_latent(vae, sampled_latent)
+            return (image,)
 
-# --- ComfyUI Registration ---
-# Example:
-# from .your_node_file import FluxSamplerParameters
+        except Exception as e:
+             logger.error(f"Execution failed: {e}")
+             raise RuntimeError(f"Node execution failed: {e}") from e
+
+# --- Registration ---
 # NODE_CLASS_MAPPINGS = { "FluxSamplerParameters": FluxSamplerParameters }
-# NODE_DISPLAY_NAME_MAPPINGS = { "FluxSamplerParameters": "Flux Generate & Sample (Pos Only)" }
+
+# --- ComfyUI Registration Info ---
+# NODE_CLASS_MAPPINGS = { "FluxSamplerParameters": FluxSamplerParameters }
+# NODE_DISPLAY_NAME_MAPPINGS = { "FluxSamplerParameters": "Flux Generate, Sample & Decode" }
