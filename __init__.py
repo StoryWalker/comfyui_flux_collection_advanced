@@ -9,6 +9,7 @@ from custom_nodes.comfyui_flux_collection_advanced.flux_controlnet_apply_preview
 from custom_nodes.comfyui_flux_collection_advanced.flux_image_preview import FluxImagePreview
 from custom_nodes.comfyui_flux_collection_advanced.flux_image_upscaler import FluxImageUpscaler
 from custom_nodes.comfyui_flux_collection_advanced.flux_vram_loader_beta import FluxModelsLoader_VRAM_Beta
+from custom_nodes.comfyui_flux_collection_advanced.flux_gguf_info import FluxGGUFInfo
 
 # --- Version Information ---
 __version__ = "0.2.0" 
@@ -30,6 +31,7 @@ NODE_CLASS_MAPPINGS = {
     "FluxImagePreview": FluxImagePreview,
     "FluxImageUpscaler": FluxImageUpscaler, 
     "FluxVRAMLoaderBeta": FluxModelsLoader_VRAM_Beta,
+    "FluxGGUFInfo": FluxGGUFInfo,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -43,6 +45,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "FluxImagePreview": "Flux Image Preview (Advanced)", 
     "FluxImageUpscaler": "Flux Image Upscaler (Spandrel)", 
     "FluxVRAMLoaderBeta": "Flux VRAM Loader (BETA/Optimization)",
+    "FluxGGUFInfo": "Flux GGUF Metadata Viewer",
 }
 
 # Optional: Message to confirm nodes loaded (useful for debugging)

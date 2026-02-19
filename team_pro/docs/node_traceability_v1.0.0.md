@@ -19,5 +19,10 @@ Proyecto: comfyui_flux_collection_advanced
 - **Cambios:** Utilizado como base arquitectónica para el nodo Beta.
 - **Estado:** Estable.
 
+### 4. Flux GGUF Metadata Viewer (`flux_gguf_info.py`)
+- **Versión:** 1.0.0
+- **Cambios:** Creación. Implementa lectura binaria de encabezados GGUF para extraer arquitectura, cuantización y resolución sugerida.
+- **Estado:** Estable.
+
 ---
 *Este registro asegura la coherencia técnica según el protocolo TEAM_PRO.*
