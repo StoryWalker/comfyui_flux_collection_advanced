@@ -23,6 +23,10 @@ __pycache__/
 # Archivos de configuración
 config.ini
 .env
+setup_env.bat
+
+# TEAM_PRO
+team_pro/
 
 # Archivos de sistemas operativos
 .DS_Store
