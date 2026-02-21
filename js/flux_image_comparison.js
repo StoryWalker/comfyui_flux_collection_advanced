@@ -2,9 +2,9 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 /**
- * Flux Image Comparison (UI Polished):
- * Gray slider aligned with ComfyUI theme.
- * Auto-shows Image A when mouse is not over the node.
+ * Flux Image Comparison (Hover Mode):
+ * Interactive comparison that activates on hover once the node is used.
+ * Gray slider, auto-reset, and no-click requirement.
  */
 
 app.registerExtension({
@@ -14,7 +14,7 @@ app.registerExtension({
 			
 			nodeDef.prototype.onNodeCreated = function() {
 				this.setSize([400, 400]);
-				this.slider = 1.0; // Default: show Image A completely
+				this.slider = 1.0; 
                 this.imgA = new Image();
                 this.imgB = new Image();
                 this.imgRect = { x: 0, y: 0, w: 1, h: 1 };
@@ -47,10 +47,10 @@ app.registerExtension({
 
                 this.imgRect = { x: dx, y: dy, w: dw, h: dh };
 
-                // 1. Draw Image B (Background)
+                // 1. Draw Image B (Target/Right)
 				ctx.drawImage(this.imgB, dx, dy, dw, dh);
 
-				// 2. Draw Image A (Clipped Overlay)
+				// 2. Draw Image A (Reference/Left with Clip)
                 const clipX = dw * this.slider;
 				ctx.save();
 				ctx.beginPath();
@@ -59,7 +59,7 @@ app.registerExtension({
 				ctx.drawImage(this.imgA, dx, dy, dw, dh);
 				ctx.restore();
 
-				// 3. Gray Slider Line (ComfyUI Style)
+				// 3. Gray Slider Line
 				ctx.strokeStyle = "#888";
 				ctx.lineWidth = 2;
 				ctx.beginPath();
@@ -68,31 +68,25 @@ app.registerExtension({
 				ctx.stroke();
 			};
 
-            // Interactive handlers
-			nodeDef.prototype.onMouseDown = function(e, pos) {
-				if (this.imgRect && pos[0] >= this.imgRect.x && pos[0] <= this.imgRect.x + this.imgRect.w) {
-					this.dragging = true;
-					this.slider = (pos[0] - this.imgRect.x) / this.imgRect.w;
-					this.setDirtyCanvas(true);
-					return true;
-				}
-			};
-
+			// Instant alignment on mouse move (No click needed)
 			nodeDef.prototype.onMouseMove = function(e, pos) {
-				if (this.dragging && this.imgRect) {
-					this.slider = Math.max(0, Math.min(1, (pos[0] - this.imgRect.x) / this.imgRect.w));
-					this.setDirtyCanvas(true);
-                    return true;
+				if (this.imgRect) {
+                    // Check if mouse is within horizontal image bounds
+                    if (pos[0] >= this.imgRect.x && pos[0] <= this.imgRect.x + this.imgRect.w) {
+					    this.slider = (pos[0] - this.imgRect.x) / this.imgRect.w;
+					    this.setDirtyCanvas(true);
+                        return true;
+                    }
 				}
 			};
 
-			nodeDef.prototype.onMouseUp = function() {
-				this.dragging = false;
-			};
+            // Ensure node gets focus on click
+            nodeDef.prototype.onMouseDown = function() {
+                return true; 
+            };
 
-            // Auto-Reset: Show Image A when mouse leaves
+            // Auto-Reset when mouse leaves the node area
             nodeDef.prototype.onMouseLeave = function() {
-                this.dragging = false;
                 this.slider = 1.0;
                 this.setDirtyCanvas(true);
             };
