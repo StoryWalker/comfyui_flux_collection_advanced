@@ -1,3 +1,10 @@
+"""
+Flux GGUF Advanced Loader
+Version: 1.0.0
+Date: 2026-02-19
+Author: TEAM_PRO (via Gemini CLI)
+Description: Advanced All-in-One loader for FLUX.1 & FLUX.2 with GGUF support.
+"""
 import logging
 import os
 import torch
