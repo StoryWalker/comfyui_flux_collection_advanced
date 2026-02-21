@@ -45,6 +45,9 @@ class FluxImageUpscaler(nodes.ComfyNodeABC):
     RETURN_TYPES = ("IMAGE",)
     OUTPUT_NODE = False
 
+    # Standard interpolation methods available even without models
+    upscale_methods = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
+
     @classmethod
     def INPUT_TYPES(cls: Type['FluxImageUpscaler']) -> Dict[str, Any]:
         """ Defines the input types for the node. """
