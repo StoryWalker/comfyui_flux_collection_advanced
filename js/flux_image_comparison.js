@@ -2,8 +2,8 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 /**
- * Flux Image Comparison (Minimalist Slider):
- * Simplest possible implementation to ensure it works.
+ * Flux Image Comparison (Correct Aspect Ratio):
+ * Maintains image proportions and provides a centered interactive slider.
  */
 
 app.registerExtension({
@@ -16,6 +16,7 @@ app.registerExtension({
 				this.slider = 0.5;
                 this.imgA = new Image();
                 this.imgB = new Image();
+                this.imgRect = { x: 0, y: 0, w: 1, h: 1 };
 			};
 
 			nodeDef.prototype.onExecuted = function(m) {
@@ -31,41 +32,55 @@ app.registerExtension({
 				if (!this.imgA?.complete || !this.imgB?.complete) return;
 				
                 const w = this.size[0];
-                const h = this.size[1] - 40; // Espacio para el tÃ­tulo
-                const y = 40;
+                const h = this.size[1] - 40; 
+                const y_start = 40;
 
-				// Dibujar B (Derecha)
-				ctx.drawImage(this.imgB, 0, y, w, h);
+                // 1. Calculate Aspect Ratio (Contain)
+                const imgW = this.imgA.naturalWidth;
+                const imgH = this.imgA.naturalHeight;
+                const ratio = Math.min(w / imgW, h / imgH);
+                
+                const dw = imgW * ratio;
+                const dh = imgH * ratio;
+                const dx = (w - dw) / 2;
+                const dy = y_start + (h - dh) / 2;
 
-				// Dibujar A (Izquierda con recorte)
+                // Store for mouse interaction
+                this.imgRect = { x: dx, y: dy, w: dw, h: dh };
+
+                // 2. Draw Background (B - Right)
+				ctx.drawImage(this.imgB, dx, dy, dw, dh);
+
+				// 3. Draw Overlay (A - Left with Clip)
+                const clipX = dw * this.slider;
 				ctx.save();
 				ctx.beginPath();
-				ctx.rect(0, y, w * this.slider, h);
+				ctx.rect(dx, dy, clipX, dh);
 				ctx.clip();
-				ctx.drawImage(this.imgA, 0, y, w, h);
+				ctx.drawImage(this.imgA, dx, dy, dw, dh);
 				ctx.restore();
 
-				// LÃ­nea del Slider
+				// 4. Slider Line
 				ctx.strokeStyle = "#0F0";
-				ctx.lineWidth = 3;
+				ctx.lineWidth = 2;
 				ctx.beginPath();
-				ctx.moveTo(w * this.slider, y);
-				ctx.lineTo(w * this.slider, y + h);
+				ctx.moveTo(dx + clipX, dy);
+				ctx.lineTo(dx + clipX, dy + dh);
 				ctx.stroke();
 			};
 
 			nodeDef.prototype.onMouseDown = function(e, pos) {
-				if (pos[1] > 40) {
+				if (this.imgRect && pos[0] >= this.imgRect.x && pos[0] <= this.imgRect.x + this.imgRect.w) {
 					this.dragging = true;
-					this.slider = Math.max(0, Math.min(1, pos[0] / this.size[0]));
+					this.slider = (pos[0] - this.imgRect.x) / this.imgRect.w;
 					this.setDirtyCanvas(true);
 					return true;
 				}
 			};
 
 			nodeDef.prototype.onMouseMove = function(e, pos) {
-				if (this.dragging) {
-					this.slider = Math.max(0, Math.min(1, pos[0] / this.size[0]));
+				if (this.dragging && this.imgRect) {
+					this.slider = Math.max(0, Math.min(1, (pos[0] - this.imgRect.x) / this.imgRect.w));
 					this.setDirtyCanvas(true);
 				}
 			};
