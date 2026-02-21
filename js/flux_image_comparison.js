@@ -2,8 +2,8 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 /**
- * Flux Image Comparison (Architectural Fix):
- * Uses a persistent widget and manual canvas drawing for total control.
+ * Flux Image Comparison (Basado en arquitectura estable):
+ * Maneja a_images y b_images para crear una comparativa interactiva.
  */
 
 app.registerExtension({
@@ -11,107 +11,107 @@ app.registerExtension({
 	async beforeRegisterNodeDef(nodeDef, nodeData, app) {
 		if (nodeData.name === "FluxImageComparison") {
 			
-			// 1. Set default size
-			const onNodeCreated = nodeDef.prototype.onNodeCreated;
-			nodeDef.prototype.onNodeCreated = function() {
-				if (onNodeCreated) onNodeCreated.apply(this, arguments);
-				this.setSize([400, 480]);
-				this.sliderPos = 0.5;
-                this.imgs = [null, null];
-			};
-
-			// 2. Handle execution data
 			const onExecuted = nodeDef.prototype.onExecuted;
-			nodeDef.prototype.onExecuted = function(message) {
+			nodeDef.prototype.onExecuted = function (message) {
 				onExecuted?.apply(this, arguments);
-				if (message.flux_compare_data) {
-					const urls = message.flux_compare_data.map(img => 
-						api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`)
-					);
-                    
-                    this.imgs = [new Image(), new Image()];
-                    this.imgs[0].onload = () => this.setDirtyCanvas(true);
-                    this.imgs[1].onload = () => this.setDirtyCanvas(true);
-                    this.imgs[0].src = urls[0];
-                    this.imgs[1].src = urls[1];
-				}
-			};
 
-			// 3. Robust Background Drawing
-			nodeDef.prototype.onDrawBackground = function(ctx) {
-				if (!this.imgs || !this.imgs[0]?.complete || !this.imgs[1]?.complete) {
-                    ctx.fillStyle = "#222";
-                    ctx.fillRect(10, 40, this.size[0]-20, this.size[1]-50);
-                    ctx.fillStyle = "#888";
-                    ctx.textAlign = "center";
-                    ctx.fillText("Waiting for Images...", this.size[0]/2, this.size[1]/2);
-                    return;
-                }
+				if (message.a_images && message.b_images && message.a_images.length > 0 && message.b_images.length > 0) {
+					const imgA = message.a_images[0];
+					const imgB = message.b_images[0];
 
-                const margin = 10;
-                const top_y = 45;
-                const w = this.size[0] - margin * 2;
-                const h = this.size[1] - margin - top_y;
+					const urlA = api.apiURL(`/view?filename=${encodeURIComponent(imgA.filename)}&type=${imgA.type}&subfolder=${encodeURIComponent(imgA.subfolder)}`);
+					const urlB = api.apiURL(`/view?filename=${encodeURIComponent(imgB.filename)}&type=${imgB.type}&subfolder=${encodeURIComponent(imgB.subfolder)}`);
 
-                // Calc scale (contain)
-                const imgW = this.imgs[0].naturalWidth;
-                const imgH = this.imgs[0].naturalHeight;
-                const ratio = Math.min(w / imgW, h / imgH);
-                const dw = imgW * ratio;
-                const dh = imgH * ratio;
-                const dx = margin + (w - dw) / 2;
-                const dy = top_y + (h - dh) / 2;
+					// Buscar si ya existe el widget para no duplicarlo
+					let widget = this.widgets?.find(w => w.name === "cmp_widget");
+					
+					if (!widget) {
+						widget = {
+							type: "custom_preview",
+							name: "cmp_widget",
+							sliderPos: 0.5,
+							imgA: null,
+							imgB: null,
+							draw(ctx, node, widget_width, y, widget_height) {
+								const margin = 5;
+								const top_y = y + margin;
+								const w = widget_width - margin * 2;
+								// Altura dinámica basada en el nodo para evitar "franjas"
+								const h = node.size[1] - y - margin * 2;
 
-                this.imgRect = { x: dx, y: dy, w: dw, h: dh };
+								if (h < 20) return;
 
-                // Draw B (Right)
-                ctx.drawImage(this.imgs[1], dx, dy, dw, dh);
+								// Fondo negro
+								ctx.fillStyle = "#000";
+								ctx.fillRect(margin, top_y, w, h);
 
-                // Draw A (Left - Clipped)
-                const clipX = dw * (this.sliderPos ?? 0.5);
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(dx, dy, clipX, dh);
-                ctx.clip();
-                ctx.drawImage(this.imgs[0], dx, dy, dw, dh);
-                ctx.restore();
+								if (this.imgA?.complete && this.imgB?.complete) {
+									// Calcular proporciones (Contain)
+									const imgW = this.imgA.naturalWidth;
+									const imgH = this.imgA.naturalHeight;
+									const ratio = Math.min(w / imgW, h / imgH);
+									const dw = imgW * ratio;
+									const dh = imgH * ratio;
+									const dx = margin + (w - dw) / 2;
+									const dy = top_y + (h - dh) / 2;
 
-                // Slider Line
-                ctx.strokeStyle = "#00FF00";
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(dx + clipX, dy);
-                ctx.lineTo(dx + clipX, dy + dh);
-                ctx.stroke();
+									this.rect = { x: dx, y: dy, w: dw, h: dh };
 
-                // Label
-                ctx.fillStyle = "rgba(0,0,0,0.7)";
-                ctx.fillRect(dx + clipX - 35, dy + 10, 70, 20);
-                ctx.fillStyle = "#0FF";
-                ctx.font = "bold 10px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText(this.sliderPos > 0.5 ? "REF: A" : "RES: B", dx + clipX, dy + 24);
-			};
+									const clipX = dw * this.sliderPos;
 
-			// 4. Input handling
-			nodeDef.prototype.onMouseDown = function(e, local_pos) {
-				if (this.imgRect && local_pos[0] >= this.imgRect.x && local_pos[0] <= this.imgRect.x + this.imgRect.w) {
-					this.isDragging = true;
-					this.sliderPos = (local_pos[0] - this.imgRect.x) / this.imgRect.w;
+									// Dibujar imagen B (Fondo)
+									ctx.drawImage(this.imgB, dx, dy, dw, dh);
+
+									// Dibujar imagen A (Corte)
+									ctx.save();
+									ctx.beginPath();
+									ctx.rect(dx, dy, clipX, dh);
+									ctx.clip();
+									ctx.drawImage(this.imgA, dx, dy, dw, dh);
+									ctx.restore();
+
+									// Slider
+									ctx.strokeStyle = "#00FF00";
+									ctx.lineWidth = 2;
+									ctx.beginPath();
+									ctx.moveTo(dx + clipX, dy);
+									ctx.lineTo(dx + clipX, dy + dh);
+									ctx.stroke();
+
+									// Tooltip
+									const label = this.sliderPos > 0.5 ? "A" : "B";
+									ctx.fillStyle = "rgba(0,0,0,0.5)";
+									ctx.fillRect(dx + clipX - 15, dy + 5, 30, 15);
+									ctx.fillStyle = "#FFF";
+									ctx.font = "10px Arial";
+									ctx.textAlign = "center";
+									ctx.fillText(label, dx + clipX, dy + 16);
+								}
+							},
+							mouse(event, pos, node) {
+								if (this.rect && (event.type === "mousedown" || (event.type === "mousemove" && event.buttons & 1))) {
+									this.sliderPos = Math.max(0, Math.min(1, (pos[0] - this.rect.x) / this.rect.w));
+									node.setDirtyCanvas(true);
+									return true;
+								}
+							},
+							computeSize(width) {
+								return [width, 400]; // Asegura altura mínima
+							}
+						};
+						this.addCustomWidget(widget);
+					}
+
+					// Cargar imágenes
+					widget.imgA = new Image();
+					widget.imgA.onload = () => this.setDirtyCanvas(true);
+					widget.imgA.src = urlA;
+					widget.imgB = new Image();
+					widget.imgB.onload = () => this.setDirtyCanvas(true);
+					widget.imgB.src = urlB;
+
 					this.setDirtyCanvas(true);
-					return true;
 				}
-			};
-
-			nodeDef.prototype.onMouseMove = function(e, local_pos) {
-				if (this.isDragging) {
-					this.sliderPos = Math.max(0, Math.min(1, (local_pos[0] - this.imgRect.x) / this.imgRect.w));
-					this.setDirtyCanvas(true);
-				}
-			};
-
-			nodeDef.prototype.onMouseUp = function() {
-				this.isDragging = false;
 			};
 		}
 	},

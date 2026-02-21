@@ -1,49 +1,47 @@
 # -*- coding: utf-8 -*-
-import os
-import numpy as np
-import torch
-import folder_paths
-from PIL import Image
+import logging
+from nodes import PreviewImage
 
-class FluxImageComparison:
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class FluxImageComparison(PreviewImage):
+    """
+    Flux Image Comparison:
+    Basado en la estructura de Rgthree Image Comparer para máxima compatibilidad.
+    """
+    FUNCTION = "compare_images"
+    CATEGORY = "flux_collection_advanced"
+    OUTPUT_NODE = True
+    RETURN_TYPES = ()
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
-            "required": {
-                "image_a": ("IMAGE",),
-                "image_b": ("IMAGE",),
-            }
+            "required": {},
+            "optional": {
+                "image_a": ("IMAGE", {"tooltip": "Imagen Izquierda (A)"}),
+                "image_b": ("IMAGE", {"tooltip": "Imagen Derecha (B)"}),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO"
+            },
         }
 
-    RETURN_TYPES = ()
-    FUNCTION = "compare"
-    OUTPUT_NODE = True
-    CATEGORY = "flux_collection_advanced"
+    def compare_images(self, image_a=None, image_b=None, prompt=None, extra_pnginfo=None):
+        prefix_a = "flux.compare.a."
+        prefix_b = "flux.compare.b."
 
-    def compare(self, image_a, image_b):
-        output_dir = folder_paths.get_temp_directory()
-        # Use a specific subfolder to avoid clutter
-        subfolder = "flux_comparison"
-        full_output_folder = os.path.join(output_dir, subfolder)
-        os.makedirs(full_output_folder, exist_ok=True)
+        result = {"ui": {"a_images": [], "b_images": []}}
+        
+        if image_a is not None and len(image_a) > 0:
+            result['ui']['a_images'] = self.save_images(image_a, prefix_a, prompt, extra_pnginfo)['ui']['images']
 
-        results = []
-        for i, img in enumerate([image_a, image_b]):
-            # Process first image in batch
-            i_tensor = img[0]
-            i_array = 255. * i_tensor.cpu().numpy()
-            i_pil = Image.fromarray(np.clip(i_array, 0, 255).astype(np.uint8))
-            
-            filename = f"cmp_{'A' if i==0 else 'B'}_{os.urandom(2).hex()}.png"
-            i_pil.save(os.path.join(full_output_folder, filename), compress_level=1)
-            
-            results.append({
-                "filename": filename,
-                "subfolder": subfolder,
-                "type": "temp"
-            })
+        if image_b is not None and len(image_b) > 0:
+            result['ui']['b_images'] = self.save_images(image_b, prefix_b, prompt, extra_pnginfo)['ui']['images']
 
-        # Return custom key to avoid triggering ComfyUI's default preview gallery
-        return {"ui": {"flux_compare_data": results}}
+        return result
 
-# Registered via __init__.py
+# Registro en __init__.py ya existente
