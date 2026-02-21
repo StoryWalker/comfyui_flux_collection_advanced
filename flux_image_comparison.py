@@ -65,7 +65,7 @@ class FluxImageComparison:
 
                 # Generate path
                 filename_prefix = f"{self._DEFAULT_PREFIX}_{'A' if i==0 else 'B'}{self.prefix_append}"
-                full_output_folder, filename, counter, subfolder, _ = 
+                full_output_folder, filename, counter, subfolder, _ = \
                     folder_paths.get_save_image_path(filename_prefix, self.output_dir, img_pil.height, img_pil.width)
 
                 file = f"{filename}_{counter:05}_.png"
