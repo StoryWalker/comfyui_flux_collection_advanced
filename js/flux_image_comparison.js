@@ -2,8 +2,9 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 /**
- * Flux Image Comparison (Correct Aspect Ratio):
- * Maintains image proportions and provides a centered interactive slider.
+ * Flux Image Comparison (UI Polished):
+ * Gray slider aligned with ComfyUI theme.
+ * Auto-shows Image A when mouse is not over the node.
  */
 
 app.registerExtension({
@@ -13,7 +14,7 @@ app.registerExtension({
 			
 			nodeDef.prototype.onNodeCreated = function() {
 				this.setSize([400, 400]);
-				this.slider = 0.5;
+				this.slider = 1.0; // Default: show Image A completely
                 this.imgA = new Image();
                 this.imgB = new Image();
                 this.imgRect = { x: 0, y: 0, w: 1, h: 1 };
@@ -35,7 +36,6 @@ app.registerExtension({
                 const h = this.size[1] - 40; 
                 const y_start = 40;
 
-                // 1. Calculate Aspect Ratio (Contain)
                 const imgW = this.imgA.naturalWidth;
                 const imgH = this.imgA.naturalHeight;
                 const ratio = Math.min(w / imgW, h / imgH);
@@ -45,13 +45,12 @@ app.registerExtension({
                 const dx = (w - dw) / 2;
                 const dy = y_start + (h - dh) / 2;
 
-                // Store for mouse interaction
                 this.imgRect = { x: dx, y: dy, w: dw, h: dh };
 
-                // 2. Draw Background (B - Right)
+                // 1. Draw Image B (Background)
 				ctx.drawImage(this.imgB, dx, dy, dw, dh);
 
-				// 3. Draw Overlay (A - Left with Clip)
+				// 2. Draw Image A (Clipped Overlay)
                 const clipX = dw * this.slider;
 				ctx.save();
 				ctx.beginPath();
@@ -60,8 +59,8 @@ app.registerExtension({
 				ctx.drawImage(this.imgA, dx, dy, dw, dh);
 				ctx.restore();
 
-				// 4. Slider Line
-				ctx.strokeStyle = "#0F0";
+				// 3. Gray Slider Line (ComfyUI Style)
+				ctx.strokeStyle = "#888";
 				ctx.lineWidth = 2;
 				ctx.beginPath();
 				ctx.moveTo(dx + clipX, dy);
@@ -69,6 +68,7 @@ app.registerExtension({
 				ctx.stroke();
 			};
 
+            // Interactive handlers
 			nodeDef.prototype.onMouseDown = function(e, pos) {
 				if (this.imgRect && pos[0] >= this.imgRect.x && pos[0] <= this.imgRect.x + this.imgRect.w) {
 					this.dragging = true;
@@ -82,12 +82,20 @@ app.registerExtension({
 				if (this.dragging && this.imgRect) {
 					this.slider = Math.max(0, Math.min(1, (pos[0] - this.imgRect.x) / this.imgRect.w));
 					this.setDirtyCanvas(true);
+                    return true;
 				}
 			};
 
 			nodeDef.prototype.onMouseUp = function() {
 				this.dragging = false;
 			};
+
+            // Auto-Reset: Show Image A when mouse leaves
+            nodeDef.prototype.onMouseLeave = function() {
+                this.dragging = false;
+                this.slider = 1.0;
+                this.setDirtyCanvas(true);
+            };
 		}
 	}
 });
