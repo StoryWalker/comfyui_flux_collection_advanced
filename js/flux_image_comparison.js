@@ -2,8 +2,8 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 /**
- * Flux Image Comparison:
- * Optimized JS extension for interactive A/B image comparison with slider.
+ * Flux Image Comparison (Aspect Ratio & Precision Fix):
+ * Perfect for 672x384 or any non-square resolution.
  */
 
 app.registerExtension({
@@ -14,16 +14,14 @@ app.registerExtension({
 			nodeDef.prototype.onExecuted = function (message) {
 				onExecuted?.apply(this, arguments);
 
-				// 1. Remove existing compare widget if any
 				if (this.widgets) {
 					this.widgets = this.widgets.filter(w => w.name !== "compare_preview");
 				}
 
-				if (message.images && message.images.length >= 2) {
-					const imgA = message.images[0];
-					const imgB = message.images[1];
+				if (message.a_images && message.b_images && message.a_images.length > 0 && message.b_images.length > 0) {
+					const imgA = message.a_images[0];
+					const imgB = message.b_images[0];
 
-					// Correct URL formation using ComfyUI API
 					const urlA = api.apiURL(`/view?filename=${encodeURIComponent(imgA.filename)}&type=${imgA.type}&subfolder=${encodeURIComponent(imgA.subfolder)}`);
 					const urlB = api.apiURL(`/view?filename=${encodeURIComponent(imgB.filename)}&type=${imgB.type}&subfolder=${encodeURIComponent(imgB.subfolder)}`);
 
@@ -31,8 +29,10 @@ app.registerExtension({
 						type: "custom_preview",
 						name: "compare_preview",
 						sliderPos: 0.5,
+                        // Store dimensions for mouse precision
+                        imgRect: { x: 0, y: 0, w: 1, h: 1 }, 
 						draw(ctx, node, widget_width, y, widget_height) {
-							const margin = 15;
+							const margin = 10;
 							const top_margin = 30;
 							const drawWidth = widget_width - margin * 2;
 							const drawHeight = widget_height - margin * 2 - top_margin;
@@ -51,63 +51,64 @@ app.registerExtension({
 								this.imgB_obj.src = urlB;
 							}
 
-							// Draw background placeholder
-							ctx.fillStyle = "#1a1a1a";
+							ctx.fillStyle = "#000";
 							ctx.fillRect(margin, y + top_margin, drawWidth, drawHeight);
 
 							if (this.imgA_obj.complete && this.imgB_obj.complete) {
-								const clipX = drawWidth * this.sliderPos;
+                                const imgW = this.imgA_obj.naturalWidth;
+                                const imgH = this.imgA_obj.naturalHeight;
+                                const ratio = Math.min(drawWidth / imgW, drawHeight / imgH);
+                                
+                                this.imgRect.w = imgW * ratio;
+                                this.imgRect.h = imgH * ratio;
+                                this.imgRect.x = margin + (drawWidth - this.imgRect.w) / 2;
+                                this.imgRect.y = y + top_margin + (drawHeight - this.imgRect.h) / 2;
 
-								// Draw Image B (Right/Background)
-								ctx.drawImage(this.imgB_obj, margin, y + top_margin, drawWidth, drawHeight);
+								const clipX = this.imgRect.w * this.sliderPos;
+
+								// Draw B
+								ctx.drawImage(this.imgB_obj, this.imgRect.x, this.imgRect.y, this.imgRect.w, this.imgRect.h);
 								
-								// Draw Image A (Left/Clipped)
+								// Draw A (Clipped)
 								ctx.save();
 								ctx.beginPath();
-								ctx.rect(margin, y + top_margin, clipX, drawHeight);
+								ctx.rect(this.imgRect.x, this.imgRect.y, clipX, this.imgRect.h);
 								ctx.clip();
-								ctx.drawImage(this.imgA_obj, margin, y + top_margin, drawWidth, drawHeight);
+								ctx.drawImage(this.imgA_obj, this.imgRect.x, this.imgRect.y, this.imgRect.w, this.imgRect.h);
 								ctx.restore();
 
-								// Draw Slider Line
-								ctx.strokeStyle = "#00FF00";
-								ctx.lineWidth = 3;
+								// Slider UI
+								ctx.strokeStyle = "#4CAF50";
+								ctx.lineWidth = 2;
 								ctx.beginPath();
-								ctx.moveTo(margin + clipX, y + top_margin);
-								ctx.lineTo(margin + clipX, y + top_margin + drawHeight);
+								ctx.moveTo(this.imgRect.x + clipX, this.imgRect.y);
+								ctx.lineTo(this.imgRect.x + clipX, this.imgRect.y + this.imgRect.h);
 								ctx.stroke();
 
-                                // Draw Label Indicator
-                                ctx.fillStyle = "rgba(0,0,0,0.7)";
-                                ctx.fillRect(margin + clipX - 40, y + top_margin + 5, 80, 20);
-                                ctx.fillStyle = "#00FF00";
-                                ctx.font = "bold 11px Arial";
-                                ctx.textAlign = "center";
+                                // Label
                                 const label = this.sliderPos > 0.5 ? "A (Left)" : "B (Right)";
-                                ctx.fillText(label, margin + clipX, y + top_margin + 19);
-							} else {
-                                // Loading state
-                                ctx.fillStyle = "#AAAAAA";
+                                ctx.fillStyle = "rgba(0,0,0,0.7)";
+                                ctx.fillRect(this.imgRect.x + clipX - 35, this.imgRect.y + 5, 70, 18);
+                                ctx.fillStyle = "#FFF";
+                                ctx.font = "bold 10px Arial";
                                 ctx.textAlign = "center";
-                                ctx.fillText("Cargando imÃ¡genes...", widget_width / 2, y + (widget_height / 2));
-                            }
+                                ctx.fillText(label, this.imgRect.x + clipX, this.imgRect.y + 17);
+							}
 						},
 						mouse(event, pos, node) {
 							if (event.type === "mousedown" || (event.type === "mousemove" && event.buttons & 1)) {
-								const margin = 15;
-								const width = node.size[0] - margin * 2;
-								this.sliderPos = Math.max(0, Math.min(1, (pos[0] - margin) / width));
+                                // Real-time calculation based on image bounds
+								this.sliderPos = Math.max(0, Math.min(1, (pos[0] - this.imgRect.x) / this.imgRect.w));
 								node.setDirtyCanvas(true);
 								return true;
 							}
 						},
                         computeSize(width) {
-                            return [width, width + 40]; 
+                            return [width, width * (384/672) + 60]; // Dynamic height based on standard ratio
                         }
 					};
 
 					this.addCustomWidget(widget);
-					this.onResize?.(this.size);
 					this.setDirtyCanvas(true);
 				}
 			};
