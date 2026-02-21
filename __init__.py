@@ -38,6 +38,7 @@ load_node("flux_controlnet_loader", "FluxControlNetLoader", "FluxControlNetLoade
 load_node("flux_controlnet_apply", "FluxControlNetApply", "FluxControlNetApply", "Flux ControlNet Apply")
 load_node("flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply Preview")
 load_node("flux_image_preview", "FluxImagePreview", "FluxImagePreview", "Flux Image Preview")
+load_node("flux_image_comparison", "FluxImageComparison", "FluxImageComparison", "Flux Image Comparison")
 load_node("flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler")
 load_node("flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")
 load_node("flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader Beta")
