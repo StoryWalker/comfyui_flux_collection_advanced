@@ -1,28 +1,23 @@
-# Registro de Trazabilidad de Nodos (v1.0.0)
+# Registro de Trazabilidad de Nodos (v1.1.0)
 Fecha: 19 de febrero de 2026
-Proyecto: comfyui_flux_collection_advanced
 
-## Nodos Desarrollados/Refactorizados en esta Sesión
+## Historial de Versiones en esta Sesión
 
-### 1. Flux GGUF Advanced Loader (`flux_gguf_loader.py`)
-- **Versión:** 1.0.0
-- **Cambios:** Refactorización para estabilidad de importación y alineación con lógica oficial de GGUF.
-- **Estado:** Estable.
+### 1. Flux Model Analyzer & Reporter (`flux_model_analyzer.py`)
+- **Versión Final:** 1.3.6
+- **Evolución:** 
+  - v1.0.0: Creación básica.
+  - v1.2.0: Triple nivel de reporte (Raw Debug).
+  - v1.3.2: Nodo de Salida Autónomo (OUTPUT_NODE).
+  - v1.3.6: Corrección definitiva de decodificación binaria y fingerprinting.
 
 ### 2. Flux VRAM Extreme Loader (BETA) (`flux_vram_loader_beta.py`)
-- **Versión:** 0.1.0-beta
-- **Cambios:** Creación desde cero. Implementa truncamiento de capas T5, auditoría de parámetros posicionales y modo Flux 2 Single CLIP.
-- **Estado:** Experimental / Optimización.
+- **Versión Final:** 0.1.5-beta
+- **Cambios:** Adaptación para Flux.2, modo Single CLIP y corrección de validación de `t5_layers`.
 
-### 3. Flux Models Loader (Advanced) (`flux_models_loader.py`)
-- **Versión:** 0.2.0 (Existente)
-- **Cambios:** Utilizado como base arquitectónica para el nodo Beta.
-- **Estado:** Estable.
-
-### 4. Flux GGUF Metadata Viewer (`flux_gguf_info.py`)
-- **Versión:** 1.0.0
-- **Cambios:** Creación. Implementa lectura binaria de encabezados GGUF para extraer arquitectura, cuantización y resolución sugerida.
-- **Estado:** Estable.
+### 3. Cargador Principal (`__init__.py`)
+- **Versión Final:** 0.2.2
+- **Cambios:** Implementación de sistema de logueo por colores ANSI y carga dinámica robusta.
 
 ---
-*Este registro asegura la coherencia técnica según el protocolo TEAM_PRO.*
+*TEAM_PRO - Traceability Protocol*
