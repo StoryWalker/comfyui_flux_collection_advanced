@@ -30,16 +30,16 @@ def load_node(module_name, class_name, mapping_name, display_name):
         return False
 
 # Registro secuencial de nodos
-load_node("flux_models_loader", "FluxModelsLoader", "FluxLoader", "Flux Models Loader (Advanced)")
-load_node("flux_gguf_loader", "FluxGGUFLoader", "FluxGGUFLoader", "Flux GGUF Advanced Loader")
-load_node("flux_text_prompt", "FluxTextPrompt", "FluxTextPrompt", "Flux Text Prompt Styler (4 Styles)")
-load_node("flux_sampler_parameters", "FluxSamplerParameters", "FluxSamplerParameters", "Flux Generate, Sample & Decode")
+load_node("flux_models_loader", "FluxModelsLoader", "FluxModelsLoader", "Flux Models Loader")
+load_node("flux_gguf_loader", "FluxGGUFLoader", "FluxGGUFLoader", "Flux GGUF Loader")
+load_node("flux_text_prompt", "FluxTextPrompt", "FluxTextPrompt", "Flux Text Prompt")
+load_node("flux_sampler_parameters", "FluxSamplerParameters", "FluxSamplerParameters", "Flux Sampler Parameters")
 load_node("flux_controlnet_loader", "FluxControlNetLoader", "FluxControlNetLoader", "Flux ControlNet Loader")
 load_node("flux_controlnet_apply", "FluxControlNetApply", "FluxControlNetApply", "Flux ControlNet Apply")
-load_node("flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply + Preview")
-load_node("flux_image_preview", "FluxImagePreview", "FluxImagePreview", "Flux Image Preview (Advanced)")
-load_node("flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler (Spandrel)")
-load_node("flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer (Refinement)")
-load_node("flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader (BETA/Optimization)")
+load_node("flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply Preview")
+load_node("flux_image_preview", "FluxImagePreview", "FluxImagePreview", "Flux Image Preview")
+load_node("flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler")
+load_node("flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")
+load_node("flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader Beta")
 
 print(f"{BOLD}Total nodos registrados: {len(NODE_CLASS_MAPPINGS)}{RESET}\n")

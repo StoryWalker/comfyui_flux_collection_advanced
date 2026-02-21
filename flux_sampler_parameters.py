@@ -27,7 +27,7 @@ class FluxSamplerParameters(nodes.ComfyNodeABC):
     # --- Node Metadata for ComfyUI ---
     FUNCTION = "generate_sample_and_decode"
     CATEGORY = "flux_collection_advanced"
-    DESCRIPTION = "Advanced Flux Sampler with VRAM optimizations, Tiled VAE, and Img2Img support."
+    DESCRIPTION = "Advanced Flux Sampler with VAE Tiling (for high-res upscaling) and optional Latent input (for Img2Img/Refinement)."
     RETURN_TYPES = ("IMAGE", "LATENT",)
     RETURN_NAMES = ("image", "latent",)
 
@@ -36,22 +36,22 @@ class FluxSamplerParameters(nodes.ComfyNodeABC):
         """ Define the required and optional input types for the node. """
         return {
             "required": {
-                "width": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16}),
-                "height": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16}),
-                "batch_size": ("INT", {"default": 1, "min": 1, "max": 64}),
-                "model": ("MODEL",),
-                "positive": ("CONDITIONING",),
-                "vae": ("VAE",),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True}),
-                "steps": ("INT", {"default": 28, "min": 1, "max": 10000}),
-                "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01}),
-                "sampler_name": (comfy.samplers.KSampler.SAMPLERS,),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS,),                
-                "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "vae_tiling": (["enabled", "disabled"], {"default": "enabled", "tooltip": "Uses tiled VAE decoding to save memory on high-res upscales."}),
+                "width": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16, "tooltip": "Target image width in pixels."}),
+                "height": ("INT", {"default": 1024, "min": 16, "max": nodes.MAX_RESOLUTION, "step": 16, "tooltip": "Target image height in pixels."}),
+                "batch_size": ("INT", {"default": 1, "min": 1, "max": 64, "tooltip": "Number of images to generate per run."}),
+                "model": ("MODEL", {"tooltip": "Flux model (UNET/Diffusion)."}),
+                "positive": ("CONDITIONING", {"tooltip": "Text prompt encoding."}),
+                "vae": ("VAE", {"tooltip": "VAE for latent/image conversion."}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True, "tooltip": "Random seed for reproducibility."}),
+                "steps": ("INT", {"default": 28, "min": 1, "max": 10000, "tooltip": "Number of sampling steps."}),
+                "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01, "tooltip": "Classifier-Free Guidance scale (1.0 is standard for Flux)."}),
+                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"tooltip": "Choice of sampling algorithm."}),
+                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"tooltip": "Noise scheduling method."}),
+                "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01, "tooltip": "Strength of noise removal (1.0 for fresh generation, lower for Img2Img)."}),
+                "vae_tiling": (["enabled", "disabled"], {"default": "enabled", "tooltip": "Uses tiled VAE decoding (essential for 2K/4K resolutions) to prevent memory errors."}),
             },
             "optional": {
-                "latent_opt": ("LATENT", {"tooltip": "Optional latent input for Img2Img/Refinement. If provided, width/height/batch_size are derived from it."}),
+                "latent_opt": ("LATENT", {"tooltip": "Optional latent input for structural refinement or Img2Img mode."}),
             }
         }
 

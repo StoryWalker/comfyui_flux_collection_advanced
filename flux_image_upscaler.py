@@ -40,11 +40,10 @@ class FluxImageUpscaler(nodes.ComfyNodeABC):
 
     # --- Node Metadata ---
     FUNCTION = "upscale_image"
-    CATEGORY = "flux_collection_advanced" # As requested
+    CATEGORY = "flux_collection_advanced"
+    DESCRIPTION = "Upscales images using high-quality models (like 4x-UltraSharp) via Spandrel. Ideal for 2K/4K preparation."
     RETURN_TYPES = ("IMAGE",)
     OUTPUT_NODE = False
-    # Standard interpolation methods available even without models
-    upscale_methods = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
 
     @classmethod
     def INPUT_TYPES(cls: Type['FluxImageUpscaler']) -> Dict[str, Any]:
@@ -58,14 +57,13 @@ class FluxImageUpscaler(nodes.ComfyNodeABC):
             except Exception as e:
                  logger.exception("Could not retrieve upscale model list.")
                  model_list = ["None", "Error: Could not list models"]
-        # No warning needed here, logged at import time if unavailable
 
         return {
             "required": {
-                "image": ("IMAGE",),
-                "model_name": (model_list, {"tooltip": "Upscale model to use ('None' for standard interpolation)."}),
-                "upscale_method": (cls.upscale_methods, {"tooltip": "Standard interpolation method (used if model_name is 'None' or for final scaling after model)."}),
-                "scale_by": ("FLOAT", {"default": 1.0, "min": 0.01, "max": 16.0, "step": 0.01, "tooltip": "Overall factor to scale the image dimensions by."}),
+                "image": ("IMAGE", {"tooltip": "Image to upscale."}),
+                "model_name": (model_list, {"tooltip": "Select upscale model (e.g. 4x-UltraSharp). 'None' uses interpolation."}),
+                "upscale_method": (cls.upscale_methods, {"tooltip": "Standard interpolation method (for final adjustments)."}),
+                "scale_by": ("FLOAT", {"default": 1.0, "min": 0.01, "max": 16.0, "step": 0.01, "tooltip": "Overall scaling factor (e.g. 2.0 to double resolution)."}),
             }
         }
 
