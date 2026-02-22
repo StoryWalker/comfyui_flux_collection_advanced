@@ -43,5 +43,10 @@ load_node("flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux
 load_node("flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")
 load_node("flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader Beta")
 load_node("wan_video_loader_dev", "WanVideoLoader_Dev", "WanVideoLoaderDev", "[DEV] Wan Video Loader")
+load_node("wan_video_sampler_dev", "WanVideoSampler_Dev", "WanVideoSamplerDev", "[DEV] Wan Video Sampler")
+load_node("wan_context_dev", "WanContext_Dev", "WanContextDev", "[DEV] Wan Context")
+load_node("wan_dual_sampler_dev", "WanDualSampler_Dev", "WanDualSamplerDev", "[DEV] Wan Dual Sampler")
+load_node("wan_loader_dev", "WanLoader_Dev", "WanLoaderDev", "[DEV] Wan Loader")
+load_node("wan_scene_encoder_dev", "WanSceneEncoder_Dev", "WanSceneEncoderDev", "[DEV] Wan Scene Encoder")
 
 print(f"{BOLD}Total nodos registrados: {len(NODE_CLASS_MAPPINGS)}{RESET}\n")
