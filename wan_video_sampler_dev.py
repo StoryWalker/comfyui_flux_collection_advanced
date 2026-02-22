@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import torch
 import logging
+import os
 import nodes
 import node_helpers
 import comfy.utils
@@ -14,23 +15,23 @@ logger = logging.getLogger(__name__)
 
 class WanVideoSampler_Dev:
     """
-    [DEV] v1.17 Full Fidelity Sampler for Wan 2.2.
-    Fixed: 'New video' issue by using normalized inpainting concatenation.
-    Fixed: Quality issues by ensuring CLIP Vision object integrity.
+    [DEV] v1.19 Extreme Stability Sampler for Wan 2.2.
+    Fixed: 'Black screen' in long chains by implementing aggressive VRAM management.
+    Features: Component passthrough and frame extraction for storytelling.
     """
     
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "reference_image": ("IMAGE", {"tooltip": "The starting frame for the video."}),
+                "reference_image": ("IMAGE", {"tooltip": "Starting frame."}),
                 "model_high": ("MODEL",),
                 "model_low": ("MODEL",),
                 "clip": ("CLIP",),
                 "vae": ("VAE",),
                 "clip_vision": ("CLIP_VISION",),
-                "positive_prompt": ("STRING", {"multiline": True, "default": "Cinematic video, high detail, masterpiece"}),
-                "negative_prompt": ("STRING", {"multiline": True, "default": "blurry, low quality, distorted, static"}),
+                "positive_prompt": ("STRING", {"multiline": True, "default": "Cinematic video"}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": "worst quality"}),
                 "width": ("INT", {"default": 480, "min": 16, "max": 2048, "step": 16}),
                 "height": ("INT", {"default": 848, "min": 16, "max": 2048, "step": 16}),
                 "num_frames": ("INT", {"default": 81, "min": 1, "max": 241, "step": 4}),
@@ -44,8 +45,8 @@ class WanVideoSampler_Dev:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "LATENT", "CONDITIONING", "CONDITIONING",)
-    RETURN_NAMES = ("IMAGE", "LATENT", "positive", "negative",)
+    RETURN_TYPES = ("IMAGE", "IMAGE", "ANY", "CLIP", "VAE", "CLIP_VISION",)
+    RETURN_NAMES = ("image", "last_image", "any", "clip", "vae", "clip_vision",)
     FUNCTION = "generate_video"
     CATEGORY = "flux_collection_advanced/_dev"
 
@@ -54,7 +55,6 @@ class WanVideoSampler_Dev:
         length = min(h, w)
         y, x = (h - length) // 2, (w - length) // 2
         cropped = image[:, y:y+length, x:x+length, :]
-        # Return full Output object
         return clip_vision.encode_image(cropped, crop=False)
 
     def _encode_prompt(self, clip, prompt):
@@ -66,41 +66,29 @@ class WanVideoSampler_Dev:
         # 1. Extraction
         ref_img = kwargs.get("reference_image")
         m_high, m_low, clip, vae, cv = kwargs.get("model_high"), kwargs.get("model_low"), kwargs.get("clip"), kwargs.get("vae"), kwargs.get("clip_vision")
-        p_str = kwargs.get("positive_prompt")
-        n_str = kwargs.get("negative_prompt")
+        p_str, n_str = kwargs.get("positive_prompt"), kwargs.get("negative_prompt")
         w, h, f = kwargs.get("width"), kwargs.get("height"), kwargs.get("num_frames")
         s_high, s_low, cfg, seed, dns = kwargs.get("steps_high"), kwargs.get("steps_low"), kwargs.get("cfg"), kwargs.get("seed"), kwargs.get("denoise")
         up_m, crop_p = kwargs.get("upscale_method"), kwargs.get("crop_position")
 
         device = comfy.model_management.get_torch_device()
         
-        # 2. Resizing Reference Image
+        # 2. Preparation with cache clearing
+        comfy.model_management.soft_empty_cache()
         img_in = ref_img.movedim(-1, 1)
         img_resized = comfy.utils.common_upscale(img_in, w, h, up_m, crop_p).movedim(1, -1)
-
-        # 3. Vision and Text Sync
-        logger.info("[DEV] Synchronizing deep vision and text...")
+        
         cv_out = self._prepare_vision(cv, img_resized)
         pos = self._encode_prompt(clip, p_str)
         neg = self._encode_prompt(clip, n_str)
 
-        # 4. WAN 2.2 Inpainting Context (Node 77 Logic)
+        # 3. Context
         latent_t = ((f - 1) // 4) + 1
         latent = torch.zeros([1, 16, latent_t, h // 8, w // 8], device=device)
-        
-        # Build Normalized Sequence
-        # Wan inpainting expects images normalized around 0.5 then scaled
         sequence = torch.ones((f, h, w, 3), device=device, dtype=img_resized.dtype) * 0.5
         sequence[0] = img_resized[0]
+        concat_img = vae.encode(sequence)
         
-        # Normalization Step (Pre-VAE)
-        # Replicating logic where pixels are centered
-        norm_sequence = sequence.clone()
-        norm_sequence[0] = img_resized[0] # Ensure frame 0 is the real foto
-        
-        concat_img = vae.encode(norm_sequence[:, :, :, :3])
-        
-        # Mask: 0.0 for anchor block, 1.0 for the rest
         concat_mask = torch.ones((1, 1, latent_t, h // 8, w // 8), device=device)
         concat_mask[:, :, :1] = 0.0 
         
@@ -108,30 +96,40 @@ class WanVideoSampler_Dev:
         p_final = node_helpers.conditioning_set_values(pos, c_vals)
         n_final = node_helpers.conditioning_set_values(neg, c_vals)
 
-        # 5. Dual LCM Sampling
+        # 4. Sampling Stage 1
         total_steps = s_high + s_low
         l_dict = {"samples": latent}
 
-        logger.info(f"[DEV] Phase 1 (Structural): Steps 0 to {s_high}")
+        logger.info(f"[DEV] Phase 1 (Structural): 0 to {s_high}")
         samples = nodes.common_ksampler(
             m_high, seed, total_steps, cfg, "lcm", "simple", 
             p_final, n_final, l_dict, denoise=dns, 
             disable_noise=False, start_step=0, last_step=s_high, force_full_denoise=False
         )[0]
 
-        logger.info(f"[DEV] Phase 2 (Textural): Steps {s_high} to {total_steps}")
+        # VITAL: Unload model A before loading model B
         comfy.model_management.soft_empty_cache()
+
+        # 5. Sampling Stage 2
+        logger.info(f"[DEV] Phase 2 (Textural): {s_high} to {total_steps}")
         samples = nodes.common_ksampler(
             m_low, seed, total_steps, cfg, "lcm", "simple", 
             p_final, n_final, samples, denoise=dns, 
             disable_noise=True, start_step=s_high, last_step=total_steps, force_full_denoise=True
         )[0]
 
-        # 6. Final Decoding
+        # 6. EXTREME VRAM CLEANUP before VAE Decode
+        # This prevents the black screens in step 3+
+        logger.info("[DEV] Extreme VRAM Cleanup...")
+        comfy.model_management.unload_all_models()
         comfy.model_management.soft_empty_cache()
-        v_out = vae.decode(samples["samples"])
-        if len(v_out.shape) == 5 and v_out.shape[0] == 1: v_out = v_out.squeeze(0)
+
+        video_output = vae.decode(samples["samples"])
+        if len(video_output.shape) == 5 and video_output.shape[0] == 1: 
+            video_output = video_output.squeeze(0)
         
-        return (v_out, samples, p_final, n_final)
+        last_frame = video_output[-1:].clone()
+        
+        return (video_output, last_frame, None, clip, vae, cv)
 
 # Registered via __init__.py
