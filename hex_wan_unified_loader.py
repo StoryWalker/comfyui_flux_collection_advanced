@@ -7,12 +7,11 @@ from .infrastructure.error_adapter import hex_error_handler
 
 logger = logging.getLogger(__name__)
 
-class WanUnifiedLoader_Hex:
+class WanUnifiedLoaderHex:
     """
-    [HEX] v2.0.0 Unified Wan Loader.
-    Organized by sections for visual clarity.
+    [HEX] v3.1.0 Unified Wan Loader.
+    Restored visual distribution with validation-safe headers.
     """
-    
     @classmethod
     def INPUT_TYPES(cls):
         unet_list = sorted(folder_paths.get_filename_list("diffusion_models") + folder_paths.get_filename_list("unet") + folder_paths.get_filename_list("unet_gguf"))
@@ -24,14 +23,14 @@ class WanUnifiedLoader_Hex:
         return {
             "required": {
                 # --- SECTION: UNET MODELS ---
-                "section_unet": (["[ UNET CONFIGURATION ]"], {}),
+                "section_unet": ("STRING", {"default": "UNET CONFIGURATION"}),
                 "model_high": (unet_list,),
                 "model_low": (unet_list,),
                 "weight_dtype": (["default", "fp8_e4m3fn", "bf16"], {"default": "default"}),
                 "sampling_shift": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 20.0, "step": 0.1}),
                 
                 # --- SECTION: ENCODERS ---
-                "section_encoders": (["[ TEXT & VISION ENCODERS ]"], {}),
+                "section_encoders": ("STRING", {"default": "TEXT & VISION ENCODERS"}),
                 "clip_name": (clip_list,),
                 "t5_optimization": (["None", "Layer Truncation", "Aggressive Offload"], {"default": "Layer Truncation"}),
                 "t5_layers": ("INT", {"default": 16, "min": 1, "max": 24, "step": 1}),
@@ -39,7 +38,7 @@ class WanUnifiedLoader_Hex:
                 "vae_name": (vae_list,),
                 
                 # --- SECTION: LORA PATCHING ---
-                "section_lora": (["[ LORA ADAPTERS ]"], {}),
+                "section_lora": ("STRING", {"default": "LORA ADAPTERS"}),
                 "lora_name": (lora_list, {"default": "None"}),
                 "lora_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
             }
@@ -52,33 +51,19 @@ class WanUnifiedLoader_Hex:
 
     @hex_error_handler
     def execute(self, **kwargs):
-        logger.info("[HEX] Unified Loader: Coordinated model stack initialization")
-
-        # 1. Map to Domain
         config = WanModelConfig(
-            model_high_name=kwargs["model_high"],
-            model_low_name=kwargs["model_low"],
-            clip_name=kwargs["clip_name"],
-            vae_name=kwargs["vae_name"],
-            clip_vision_name=kwargs["clip_vision_name"],
-            sampling_shift=kwargs["sampling_shift"],
-            weight_dtype=kwargs["weight_dtype"],
-            lora_name=kwargs["lora_name"],
-            lora_strength=kwargs["lora_strength"],
+            model_high_name=kwargs.get("model_high"),
+            model_low_name=kwargs.get("model_low"),
+            clip_name=kwargs.get("clip_name"),
+            vae_name=kwargs.get("vae_name"),
+            clip_vision_name=kwargs.get("clip_vision_name"),
+            sampling_shift=kwargs.get("sampling_shift", 5.0),
+            weight_dtype=kwargs.get("weight_dtype", "default"),
+            lora_name=kwargs.get("lora_name", "None"),
+            lora_strength=kwargs.get("lora_strength", 1.0),
             t5_optimization=kwargs.get("t5_optimization", "Layer Truncation"),
             t5_layers=kwargs.get("t5_layers", 16)
         )
-
-        # 2. Call Application Service
         service = ModelLoaderService()
         stack = service.load_full_wan_stack(config)
-
-        return (
-            stack["model_high"],
-            stack["model_low"],
-            stack["clip"],
-            stack["vae"],
-            stack["clip_vision"]
-        )
-
-# Registered via __init__.py
+        return (stack["model_high"], stack["model_low"], stack["clip"], stack["vae"], stack["clip_vision"])

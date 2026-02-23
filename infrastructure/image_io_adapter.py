@@ -34,30 +34,34 @@ class ImageIOAdapter:
         
         return image
 
-    @staticmethod
-    def load_styles_csv() -> dict:
+    _styles_cache = None
+
+    @classmethod
+    def load_styles_csv(cls) -> dict:
         """
-        Loads styles from styles.csv file.
+        Loads styles from styles.csv file with internal caching.
         Returns a dict: {name: (positive, negative)}
         """
+        if cls._styles_cache is not None:
+            return cls._styles_cache
+
         import csv
         styles = {"No Style": ("", "")}
-        # styles.csv is in the root of the custom node
         base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         csv_path = os.path.join(base_path, "styles.csv")
         
         if not os.path.exists(csv_path):
-            logger.warning(f"styles.csv not found at {csv_path}")
             return styles
 
         try:
             with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.reader(f)
-                next(reader) # Skip header
+                next(reader) 
                 for row in reader:
                     if len(row) >= 3:
                         styles[row[0]] = (row[1], row[2])
-            logger.info(f"[HEX] Loaded {len(styles)} styles from CSV.")
+            cls._styles_cache = styles
+            logger.info(f"[HEX] Cached {len(styles)} styles.")
         except Exception as e:
             logger.error(f"Error loading styles: {e}")
             
