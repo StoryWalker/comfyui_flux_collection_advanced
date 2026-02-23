@@ -25,11 +25,14 @@ config.ini
 .env
 setup_env.bat
 
-# TEAM_PRO
+# TEAM_PRO - AISLAMIENTO TOTAL
 team_pro/
 references/
 old_versions/
 tests/
+*.log
+*.audit
+wan_sampler_audit.log
 
 # Archivos de sistemas operativos
 .DS_Store
@@ -42,7 +45,6 @@ Thumbs.db
 *.vscode/
 
 # Archivos de datos sensibles
-#*.csv
 *.json
 *.sqlite
 *.pem
@@ -57,8 +59,7 @@ secret_key.txt
 debug.log
 instructions_to_commits.md
 
-# Excepciones (archivos que no se deben ignorar)
+# Excepciones
 !important.txt
-
-# Directorios de caches
-.cache/
+!.gitignore
+!__init__.py

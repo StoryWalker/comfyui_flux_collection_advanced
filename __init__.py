@@ -26,7 +26,9 @@ def load_node(module_name, class_name, mapping_name, display_name):
         print(f"{GREEN}[OK]{RESET} {display_name}")
         return True
     except Exception as e:
+        import traceback
         print(f"{RED}[ERROR]{RESET} {display_name}: {e}")
+        traceback.print_exc()
         return False
 
 # Registro secuencial de nodos
@@ -53,6 +55,14 @@ load_node("wan_history_dev", "WanContinuityBuffer_Dev", "WanContinuityBufferDev"
 load_node("wan_history_dev", "WanPromptSequencer_Dev", "WanPromptSequencerDev", "[DEV] Wan Prompt Sequencer")
 load_node("wan_prompt_encoder_dev", "WanPromptEncoder_Dev", "WanPromptEncoderDev", "[DEV] Wan Prompt Encoder")
 load_node("wan_story_sampler_dev", "WanStorySampler_v2", "WanStorySampler_v2", "[DEV] Wan Story Sampler")
+load_node("hex_wan_unified_loader", "WanUnifiedLoader_Hex", "WanUnifiedLoaderHex", "[HEX] Wan Unified Loader")
+load_node("hex_image_loader", "ImageLoader_Hex", "ImageLoaderHex", "[HEX] Image Loader")
+load_node("test_hex_loaders", "Test_Hex_UnetLoader", "TestHexUnetLoader", "[TEST] Hex UNET Loader")
+load_node("test_hex_loaders", "Test_Hex_ClipLoader", "TestHexClipLoader", "[TEST] Hex CLIP Loader")
+load_node("test_hex_loaders", "Test_Hex_VaeLoader", "TestHexVaeLoader", "[TEST] Hex VAE Loader")
+load_node("test_hex_loaders", "Test_Hex_ClipVisionLoader", "TestHexClipVisionLoader", "[TEST] Hex CLIP Vision Loader")
+load_node("test_hex_loaders", "Test_Hex_LoraLoader", "TestHexLoraLoader", "[TEST] Hex LoRA Loader")
+load_node("test_hex_loaders", "Test_Hex_ModelSampling", "TestHexModelSampling", "[TEST] Hex Model Sampling")
 load_node("wan_index_bridge_dev", "WanIndexBridge_Dev", "WanIndexBridgeDev", "[DEV] Wan Index Bridge")
 load_node("wan_video_saver_dev", "WanVideoSaver_Dev", "WanVideoSaverDev", "[DEV] Wan Video Saver")
 

@@ -1,0 +1,84 @@
+# -*- coding: utf-8 -*-
+import logging
+import folder_paths
+from .domain.models import WanModelConfig
+from .application.loader_service import ModelLoaderService
+from .infrastructure.error_adapter import hex_error_handler
+
+logger = logging.getLogger(__name__)
+
+class WanUnifiedLoader_Hex:
+    """
+    [HEX] v2.0.0 Unified Wan Loader.
+    Organized by sections for visual clarity.
+    """
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        unet_list = sorted(folder_paths.get_filename_list("diffusion_models") + folder_paths.get_filename_list("unet") + folder_paths.get_filename_list("unet_gguf"))
+        clip_list = sorted(folder_paths.get_filename_list("text_encoders") + folder_paths.get_filename_list("clip") + folder_paths.get_filename_list("clip_gguf"))
+        vae_list = sorted(folder_paths.get_filename_list("vae"))
+        cv_list = sorted(folder_paths.get_filename_list("clip_vision"))
+        lora_list = ["None"] + sorted(folder_paths.get_filename_list("loras"))
+
+        return {
+            "required": {
+                # --- SECTION: UNET MODELS ---
+                "section_unet": (["[ UNET CONFIGURATION ]"], {}),
+                "model_high": (unet_list,),
+                "model_low": (unet_list,),
+                "weight_dtype": (["default", "fp8_e4m3fn", "bf16"], {"default": "default"}),
+                "sampling_shift": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 20.0, "step": 0.1}),
+                
+                # --- SECTION: ENCODERS ---
+                "section_encoders": (["[ TEXT & VISION ENCODERS ]"], {}),
+                "clip_name": (clip_list,),
+                "t5_optimization": (["None", "Layer Truncation", "Aggressive Offload"], {"default": "Layer Truncation"}),
+                "t5_layers": ("INT", {"default": 16, "min": 1, "max": 24, "step": 1}),
+                "clip_vision_name": (cv_list,),
+                "vae_name": (vae_list,),
+                
+                # --- SECTION: LORA PATCHING ---
+                "section_lora": (["[ LORA ADAPTERS ]"], {}),
+                "lora_name": (lora_list, {"default": "None"}),
+                "lora_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
+            }
+        }
+
+    RETURN_TYPES = ("MODEL", "MODEL", "CLIP", "VAE", "CLIP_VISION",)
+    RETURN_NAMES = ("MODEL_HIGH", "MODEL_LOW", "CLIP", "VAE", "CLIP_VISION",)
+    FUNCTION = "execute"
+    CATEGORY = "flux_collection_advanced/hex"
+
+    @hex_error_handler
+    def execute(self, **kwargs):
+        logger.info("[HEX] Unified Loader: Coordinated model stack initialization")
+
+        # 1. Map to Domain
+        config = WanModelConfig(
+            model_high_name=kwargs["model_high"],
+            model_low_name=kwargs["model_low"],
+            clip_name=kwargs["clip_name"],
+            vae_name=kwargs["vae_name"],
+            clip_vision_name=kwargs["clip_vision_name"],
+            sampling_shift=kwargs["sampling_shift"],
+            weight_dtype=kwargs["weight_dtype"],
+            lora_name=kwargs["lora_name"],
+            lora_strength=kwargs["lora_strength"],
+            t5_optimization=kwargs.get("t5_optimization", "Layer Truncation"),
+            t5_layers=kwargs.get("t5_layers", 16)
+        )
+
+        # 2. Call Application Service
+        service = ModelLoaderService()
+        stack = service.load_full_wan_stack(config)
+
+        return (
+            stack["model_high"],
+            stack["model_low"],
+            stack["clip"],
+            stack["vae"],
+            stack["clip_vision"]
+        )
+
+# Registered via __init__.py
