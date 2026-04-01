@@ -43,8 +43,12 @@ class WanVideoLoader_Dev:
 
         # 1. Load CLIP (WAN Type)
         clip_path = folder_paths.get_full_path_or_raise("text_encoders", clip_name)
-        try: clip_type = comfy.sd.CLIPType.WAN
-        except: clip_type = comfy.sd.CLIPType.SD3
+        # Task-Source: T#3
+        try:
+            clip_type = comfy.sd.CLIPType.WAN
+        except AttributeError:
+            logger.warning("[DEV] CLIPType.WAN no disponible, usando CLIPType.SD3 como fallback")
+            clip_type = comfy.sd.CLIPType.SD3
         clip = comfy.sd.load_clip(ckpt_paths=[clip_path], clip_type=clip_type)
 
         # 2. Load VAE

@@ -1,3 +1,4 @@
+# Task-Source: T#4
 # -*- coding: utf-8 -*-
 import logging
 import torch
@@ -10,8 +11,10 @@ logger = logging.getLogger(__name__)
 
 class LoopFetcherHex:
     """
-    [HEX] v3.2.0 Robust Loop Fetcher.
+    [HEX] v3.2.1 Robust Loop Fetcher.
     Forces cache bypass to ensure sequential updates during batch runs.
+    Las dimensiones de fallback se configuran aqui para eliminar valores hardcodeados
+    en la capa de aplicacion.
     """
     @classmethod
     def INPUT_TYPES(cls):
@@ -19,11 +22,11 @@ class LoopFetcherHex:
             "required": {
                 "section_loop": ("STRING", {"default": "LOOP CONFIGURATION"}),
                 "mode": (["Initial Frame", "Continue from Disk"], {"default": "Initial Frame"}),
+                "fallback_width":  ("INT", {"default": 848, "min": 64, "max": 4096, "step": 8}),
+                "fallback_height": ("INT", {"default": 480, "min": 64, "max": 4096, "step": 8}),
             },
             "optional": {
                 "initial_image": ("IMAGE",),
-                # Trick: This hidden input forces ComfyUI to re-execute the node 
-                # if we could connect it, but for now we'll use time-based logic.
             }
         }
 
@@ -32,7 +35,7 @@ class LoopFetcherHex:
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
 
-    # Crucial: IS_CHANGED forces ComfyUI to re-run this node every time Queue is pressed
+    # IS_CHANGED fuerza a ComfyUI a re-ejecutar este nodo cada vez que se presiona Queue
     @classmethod
     def IS_CHANGED(cls, **kwargs):
         return time.time()
@@ -41,14 +44,22 @@ class LoopFetcherHex:
     def execute(self, **kwargs):
         mode = kwargs.get("mode", "Initial Frame")
         initial_image = kwargs.get("initial_image", None)
-        
-        logger.info(f"[HEX] Loop Fetcher: Fetching frame for mode '{mode}'...")
-        
+        fallback_width = kwargs.get("fallback_width", 848)
+        fallback_height = kwargs.get("fallback_height", 480)
+
+        logger.info(f"[HEX] Loop Fetcher: modo '{mode}', fallback {fallback_width}x{fallback_height}")
+
         config = BufferConfig(mode=mode)
         service = ContinuityService()
-        
-        # Sincronización: Forzar lectura fresca del disco
-        image_out = service.sync_image(config, initial_image=initial_image, sampler_last_image=None)
+
+        # Sincronizacion: Forzar lectura fresca del disco
+        image_out = service.sync_image(
+            config,
+            initial_image=initial_image,
+            sampler_last_image=None,
+            fallback_height=fallback_height,
+            fallback_width=fallback_width,
+        )
 
         return (image_out,)
 

@@ -104,7 +104,9 @@ class FluxImagePreview:
                                 json_value = json.dumps(value)
                                 if len(json_value) < 10000: # Limit metadata size
                                     metadata.add_text(str(key), json_value)
-                            except: pass
+                            except (TypeError, ValueError) as e:
+                                # Task-Source: T#3
+                                logger.warning(f"[Preview] No se pudo serializar metadato '{key}': {e}")
 
                 # Generate unique temp filename
                 file = f"{filename.replace('%batch_num%', str(i))}_{counter:05}_.png"

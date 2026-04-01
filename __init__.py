@@ -1,4 +1,6 @@
+# Task-Source: T#5
 import logging
+import os
 
 # Configuración de colores ANSI para la consola
 GREEN = "\033[92m"
@@ -40,29 +42,32 @@ load_node("hex_loop_fetcher", "LoopFetcherHex", "LoopFetcherHex", "[HEX] Loop Fe
 load_node("hex_prompt_sequencer", "PromptSequencerHex", "PromptSequencerHex", "[HEX] Prompt Sequencer")
 load_node("hex_wan_video_saver", "WanVideoSaverHex", "WanVideoSaverHex", "[HEX] Wan Video Saver")
 
-# Registro de nodos de apoyo y DEV
-load_node("test_hex_loaders", "Test_Hex_UnetLoader", "TestHexUnetLoader", "[TEST] Hex UNET Loader")
-load_node("test_hex_loaders", "Test_Hex_ClipLoader", "TestHexClipLoader", "[TEST] Hex CLIP Loader")
-load_node("test_hex_loaders", "Test_Hex_VaeLoader", "TestHexVaeLoader", "[TEST] Hex VAE Loader")
-load_node("test_hex_loaders", "Test_Hex_ClipVisionLoader", "TestHexClipVisionLoader", "[TEST] Hex CLIP Vision Loader")
-load_node("test_hex_loaders", "Test_Hex_LoraLoader", "TestHexLoraLoader", "[TEST] Hex LoRA Loader")
-load_node("test_hex_loaders", "Test_Hex_ModelSampling", "TestHexModelSampling", "[TEST] Hex Model Sampling")
+# Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
+if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
+    load_node("test_hex_loaders", "Test_Hex_UnetLoader", "TestHexUnetLoader", "[TEST] Hex UNET Loader")
+    load_node("test_hex_loaders", "Test_Hex_ClipLoader", "TestHexClipLoader", "[TEST] Hex CLIP Loader")
+    load_node("test_hex_loaders", "Test_Hex_VaeLoader", "TestHexVaeLoader", "[TEST] Hex VAE Loader")
+    load_node("test_hex_loaders", "Test_Hex_ClipVisionLoader", "TestHexClipVisionLoader", "[TEST] Hex CLIP Vision Loader")
+    load_node("test_hex_loaders", "Test_Hex_LoraLoader", "TestHexLoraLoader", "[TEST] Hex LoRA Loader")
+    load_node("test_hex_loaders", "Test_Hex_ModelSampling", "TestHexModelSampling", "[TEST] Hex Model Sampling")
+    load_node("pending_refactor.wan_index_bridge_dev", "WanIndexBridge_Dev", "WanIndexBridgeDev", "[DEV] Wan Index Bridge")
+    load_node("pending_refactor.wan_video_saver_dev", "WanVideoSaver_Dev", "WanVideoSaverDev", "[DEV] Wan Video Saver")
+    print(f"{YELLOW}[DEV] Modo desarrollo activo — nodos TEST y DEV registrados.{RESET}")
+else:
+    print(f"[INFO] Nodos DEV/TEST omitidos. Activa con COMFYUI_DEV_NODES=1 para cargarlos.")
 
-load_node("wan_index_bridge_dev", "WanIndexBridge_Dev", "WanIndexBridgeDev", "[DEV] Wan Index Bridge")
-load_node("wan_video_saver_dev", "WanVideoSaver_Dev", "WanVideoSaverDev", "[DEV] Wan Video Saver")
-
-# Registro de nodos legacy Flux
-load_node("flux_models_loader", "FluxModelsLoader", "FluxModelsLoader", "Flux Models Loader")
-load_node("flux_gguf_loader", "FluxGGUFLoader", "FluxGGUFLoader", "Flux GGUF Loader")
-load_node("flux_text_prompt", "FluxTextPrompt", "FluxTextPrompt", "Flux Text Prompt")
-load_node("flux_sampler_parameters", "FluxSamplerParameters", "FluxSamplerParameters", "Flux Sampler Parameters")
-load_node("flux_controlnet_loader", "FluxControlNetLoader", "FluxControlNetLoader", "Flux ControlNet Loader")
-load_node("flux_controlnet_apply", "FluxControlNetApply", "FluxControlNetApply", "Flux ControlNet Apply")
-load_node("flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply Preview")
-load_node("flux_image_preview", "FluxImagePreview", "FluxImagePreview", "Flux Image Preview")
-load_node("flux_image_comparison", "FluxImageComparison", "FluxImageComparison", "Flux Image Comparison")
-load_node("flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler")
-load_node("flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")
-load_node("flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader Beta")
+# Registro de nodos legacy Flux [pending_refactor]
+load_node("pending_refactor.flux_models_loader", "FluxModelsLoader", "FluxModelsLoader", "Flux Models Loader")
+load_node("pending_refactor.flux_gguf_loader", "FluxGGUFLoader", "FluxGGUFLoader", "Flux GGUF Loader")
+load_node("pending_refactor.flux_text_prompt", "FluxTextPrompt", "FluxTextPrompt", "Flux Text Prompt")
+load_node("pending_refactor.flux_sampler_parameters", "FluxSamplerParameters", "FluxSamplerParameters", "Flux Sampler Parameters")
+load_node("pending_refactor.flux_controlnet_loader", "FluxControlNetLoader", "FluxControlNetLoader", "Flux ControlNet Loader")
+load_node("pending_refactor.flux_controlnet_apply", "FluxControlNetApply", "FluxControlNetApply", "Flux ControlNet Apply")
+load_node("pending_refactor.flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply Preview")
+load_node("pending_refactor.flux_image_preview", "FluxImagePreview", "FluxImagePreview", "Flux Image Preview")
+load_node("pending_refactor.flux_image_comparison", "FluxImageComparison", "FluxImageComparison", "Flux Image Comparison")
+load_node("pending_refactor.flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler")
+load_node("pending_refactor.flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")
+load_node("pending_refactor.flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader Beta")
 
 print(f"{BOLD}Total nodos registrados: {len(NODE_CLASS_MAPPINGS)}{RESET}\n")

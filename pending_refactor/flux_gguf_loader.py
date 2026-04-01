@@ -29,10 +29,13 @@ class FluxGGUFLoader(nodes.ComfyNodeABC):
     @classmethod
     def INPUT_TYPES(cls):
         def get_files(keys):
+            # Task-Source: T#3
             files = []
             for key in keys:
-                try: files += folder_paths.get_filename_list(key)
-                except: pass
+                try:
+                    files += folder_paths.get_filename_list(key)
+                except Exception as e:
+                    logger.warning(f"[GGUF] No se pudo listar archivos para la categoria '{key}': {e}")
             return sorted(list(set(files)))
 
         unet_list = get_files(["unet_gguf", "diffusion_models", "unet"])

@@ -88,15 +88,20 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
                 info["is_flux2"] = True
             elif double == 19: info["arch"] = "flux.1_standard"
             return info
-        except: return info
+        except Exception as e:
+            # Task-Source: T#3
+            logger.warning(f"[VRAM] Error al detectar arquitectura GGUF en '{path}': {e}")
+            return info
 
     def load_models_vram(self, unet_name, dequant_dtype, clip_name1, clip_name2, t5_optimization, vae_name, auto_optimize, t5_layers=16, patch_dtype="default", patch_on_device=False):
         # Robust Parameter Cleaning
         try:
-            # If t5_layers was sent as a string (shift), try to recover or default
+            # Si t5_layers llega como string (shift), intentar convertir o usar default
             if isinstance(t5_layers, str): t5_layers = 16
             t5_layers = int(t5_layers) if t5_layers is not None else 16
-        except: t5_layers = 16
+        except (ValueError, TypeError) as e:
+            logger.warning(f"[VRAM] Valor invalido para t5_layers '{t5_layers}', usando default 16: {e}")
+            t5_layers = 16
 
         # Safety for patch_dtype
         if patch_dtype not in ["default", "target", "float32", "float16", "bfloat16"]: patch_dtype = "default"
@@ -116,7 +121,8 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
         try:
             sampling = model.model.model_sampling
             if not hasattr(sampling, "shift"): sampling.set_parameters(shift=1.15)
-        except: pass
+        except Exception as e:
+            logger.warning(f"[VRAM] No se pudo aplicar shift de sampling al modelo: {e}")
 
         # 3. Load CLIP(s)
         use_single = (str(clip_name2) == "None" or not clip_name2)
@@ -143,7 +149,8 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
                 elif hasattr(clip.cond_stage_model, "transformer"): t5 = clip.cond_stage_model.transformer
                 if t5 and hasattr(t5, "encoder") and t5_layers < 24:
                     t5.encoder.block = t5.encoder.block[:t5_layers]
-            except: pass
+            except Exception as e:
+                logger.warning(f"[VRAM] No se pudo truncar T5 a {t5_layers} capas: {e}")
 
         # 5. Load VAE
         vae = self._load_vae_robust(vae_name)
@@ -167,4 +174,6 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
                 return comfy.sd.VAE(sd=sd)
             else:
                 return comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", name)))
-        except: return None
+        except Exception as e:
+            logger.error(f"[VRAM] No se pudo cargar VAE '{name}': {e}", exc_info=True)
+            return None

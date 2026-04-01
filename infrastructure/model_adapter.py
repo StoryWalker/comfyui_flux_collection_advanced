@@ -70,12 +70,15 @@ class ComfyModelAdapter:
                 size_gb = os.path.getsize(path) / (1024**3)
                 logger.info(f"[HEX] CLIP Trace: File size -> {size_gb:.2f} GB")
             
+            # Task-Source: T#2
             # Force WAN type (UMT5)
             # We explicitly pass clip_type=WAN to ensure 4096 dimensions.
             try:
                 clip_type = comfy.sd.CLIPType.WAN
-            except:
-                clip_type = "wan" 
+            except AttributeError:
+                # Versiones antiguas de ComfyUI no tienen CLIPType.WAN definido
+                logger.warning("[HEX] CLIPType.WAN no disponible en esta version de ComfyUI, usando fallback string 'wan'")
+                clip_type = "wan"
             
             logger.info(f"[HEX] CLIP Trace: Enforcing type '{clip_type}' for Wan 2.2")
             # Using the standard loader without manual embedding dir to avoid path errors

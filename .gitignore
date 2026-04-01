@@ -27,6 +27,8 @@ setup_env.bat
 
 # TEAM_PRO - AISLAMIENTO TOTAL
 team_pro/
+session_context/
+.claude/
 references/
 old_versions/
 tests/

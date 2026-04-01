@@ -76,8 +76,12 @@ class WanVideoLoader_Dev:
 
         # 2. CLIP & Vision
         clip_path = folder_paths.get_full_path_or_raise("text_encoders", clip_name)
-        try: clip_type = comfy.sd.CLIPType.WAN
-        except: clip_type = comfy.sd.CLIPType.SD3
+        # Task-Source: T#3
+        try:
+            clip_type = comfy.sd.CLIPType.WAN
+        except AttributeError:
+            logger.warning("[DEV] CLIPType.WAN no disponible, usando CLIPType.SD3 como fallback")
+            clip_type = comfy.sd.CLIPType.SD3
         clip = comfy.sd.load_clip(ckpt_paths=[clip_path], clip_type=clip_type)
         cv = comfy.clip_vision.load(folder_paths.get_full_path_or_raise("clip_vision", cv_name))
 
@@ -98,8 +102,10 @@ class WanVideoLoader_Dev:
 
         # 4. Sampling Shift
         for m in [m_high, m_low]:
-            try: m.model.model_sampling.set_parameters(shift=shift)
-            except: pass
+            try:
+                m.model.model_sampling.set_parameters(shift=shift)
+            except Exception as e:
+                logger.warning(f"[DEV] No se pudo aplicar shift={shift} al modelo: {e}")
 
         # 5. VAE
         vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", vae_name)))

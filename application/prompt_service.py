@@ -19,11 +19,13 @@ class PromptSequencerService:
         self.index_file = os.path.join(folder_paths.get_temp_directory(), "wan_prompt_index.txt")
 
     def _read_persistent_index(self) -> int:
+        # Task-Source: T#2
         if os.path.exists(self.index_file):
             try:
                 with open(self.index_file, "r") as f:
                     return int(f.read().strip())
-            except:
+            except (ValueError, OSError) as e:
+                logger.warning(f"[HEX] Prompt Service: No se pudo leer el indice persistente, reiniciando a 0: {e}")
                 return 0
         return 0
 

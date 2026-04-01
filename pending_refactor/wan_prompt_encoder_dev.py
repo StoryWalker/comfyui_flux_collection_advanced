@@ -33,7 +33,9 @@ class WanPromptEncoder_Dev:
                             if len(parts) >= 3:
                                 cls._cached_styles[parts[0]] = [parts[1], parts[2]]
                     cls._styles_loaded = True
-                except: pass
+                except Exception as e:
+                    # Task-Source: T#3
+                    logger.warning(f"[DEV] Error al cargar styles.csv: {e}")
             if not cls._cached_styles:
                 cls._cached_styles = {"No Style": ["", ""]}
                 cls._styles_loaded = True
