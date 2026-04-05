@@ -68,6 +68,18 @@ class ImageIOAdapter:
         return styles
 
     @staticmethod
+    def save_temp_image(tensor: torch.Tensor, key: str) -> dict:
+        """
+        Guarda el primer frame de un tensor [B, H, W, C] como PNG temporal.
+        Retorna el dict de referencia de UI que espera ComfyUI.
+        """
+        i = 255.0 * tensor[0].cpu().numpy()
+        img_pil = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+        filename = f"cmp_{key}_{os.urandom(2).hex()}.png"
+        img_pil.save(os.path.join(folder_paths.get_temp_directory(), filename), compress_level=1)
+        return {"filename": filename, "type": "temp", "subfolder": ""}
+
+    @staticmethod
     def get_input_image_list() -> List[str]:
         """ 
         Returns a list of all images in the input directory.

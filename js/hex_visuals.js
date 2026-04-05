@@ -10,14 +10,18 @@ app.registerExtension({
 			"LoopFetcherHex",
 			"LoopStorageHex",
 			"PromptSequencerHex",
-			"WanVideoSaverHex"
+			"WanVideoSaverHex",
+			"FluxGGUFLoader",
+			"FluxTextPromptHex",
+			"FluxSamplerParametersHex",
+			"GlobalSeedHex"
 		];
 
 		if (hexNodes.includes(nodeData.name)) {
 			const onNodeCreated = nodeType.prototype.onNodeCreated;
 			nodeType.prototype.onNodeCreated = function () {
 				const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
-
+				this.size[0] = 400;
 				this.widgets.forEach(w => {
 					if (w.name && w.name.startsWith("section_")) {
 						// Ocultamos el input del widget pero mantenemos el valor para la validación
@@ -45,6 +49,20 @@ app.registerExtension({
 					}
 				});
 				return r;
+			};
+
+			const onConfigure = nodeType.prototype.onConfigure;
+			nodeType.prototype.onConfigure = function () {
+				const r = onConfigure ? onConfigure.apply(this, arguments) : undefined;
+				this.size[0] = 400;
+				return r;
+			};
+
+			const computeSize = nodeType.prototype.computeSize;
+			nodeType.prototype.computeSize = function () {
+				const size = computeSize ? computeSize.apply(this, arguments) : [400, 200];
+				size[0] = Math.max(size[0], 400);
+				return size;
 			};
 		}
 	},

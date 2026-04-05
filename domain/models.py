@@ -87,6 +87,72 @@ class ImageLoadConfig:
     load_cap: int = 0
     start_index: int = 0
 
+# Task-Source: T#12-GGUF
+@dataclass(frozen=True)
+class FluxModelConfig:
+    """ Entidad de dominio pura para la configuracion del stack de carga Flux GGUF """
+    unet_name: str
+    clip_name1: str
+    vae_name: str
+    clip_type: str           # "flux" | "flux2" | "sd3" | "sdxl"
+    base_type: str           # "flux" | "flux2" | "wan2.1"
+    clip_name2: str = "None"
+    dequant_dtype: str = "default"
+    patch_dtype: str = "default"
+    patch_on_device: bool = False
+
+    @property
+    def use_single_clip(self) -> bool:
+        return self.clip_name2 == "None" or not self.clip_name2
+
+    @property
+    def clip_type_normalized(self) -> str:
+        """ Normaliza clip_type para la API de ComfyUI """
+        return "flux" if self.clip_type in ["flux", "flux2"] else self.clip_type
+
+    def is_gguf(self, name: str) -> bool:
+        return name.lower().endswith(".gguf")
+
+
+@dataclass(frozen=True)
+class FluxSamplerConfig:
+    """ Pure Domain Entity for Flux single-stage sampling """
+    width: int
+    height: int
+    batch_size: int
+    seed: int
+    steps: int
+    cfg: float
+    sampler_name: str
+    scheduler: str
+    denoise: float
+    vae_tiling: str = "enabled"  # "enabled" | "disabled"
+
+    def __post_init__(self):
+        if self.width % 16 != 0 or self.height % 16 != 0:
+            raise ValueError("Width and height must be multiples of 16.")
+        if self.steps < 1:
+            raise ValueError("Steps must be at least 1.")
+
+@dataclass(frozen=True)
+class TextEncodingConfig:
+    """ Pure Domain Entity for Flux text prompt encoding """
+    text: str
+    style1: str
+    style2: str
+    style3: str
+    style4: str
+    guidance: float
+
+    def get_styled_prompt(self, style_map: dict) -> str:
+        parts = [self.text.strip()]
+        for s in [self.style1, self.style2, self.style3, self.style4]:
+            if s in style_map:
+                pos = style_map[s][0]
+                if pos and pos.strip():
+                    parts.append(pos.strip())
+        return ", ".join(p for p in parts if p)
+
 @dataclass(frozen=True)
 class PromptSequence:
     """ Pure Domain Entity for Multi-line Prompt Sequencing """

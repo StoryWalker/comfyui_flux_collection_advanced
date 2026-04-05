@@ -9,7 +9,7 @@ RED = "\033[91m"
 RESET = "\033[0m"
 BOLD = "\033[1m"
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 WEB_DIRECTORY = "./js"
 
 NODE_CLASS_MAPPINGS = {}
@@ -41,6 +41,11 @@ load_node("hex_loop_storage", "LoopStorageHex", "LoopStorageHex", "[HEX] Loop St
 load_node("hex_loop_fetcher", "LoopFetcherHex", "LoopFetcherHex", "[HEX] Loop Fetcher")
 load_node("hex_prompt_sequencer", "PromptSequencerHex", "PromptSequencerHex", "[HEX] Prompt Sequencer")
 load_node("hex_wan_video_saver", "WanVideoSaverHex", "WanVideoSaverHex", "[HEX] Wan Video Saver")
+load_node("hex_image_models_loader", "FluxGGUFLoaderHex", "FluxGGUFLoader", "[HEX] Flux GGUF Loader")
+load_node("hex_image_text_prompt", "FluxTextPromptHex", "FluxTextPromptHex", "[HEX] Flux Text Prompt")
+load_node("hex_image_sampler_parameters", "FluxSamplerParametersHex", "FluxSamplerParametersHex", "[HEX] Flux Sampler Parameters")
+load_node("hex_image_comparison", "ImageComparisonHex", "ImageComparisonHex", "[HEX] Image Comparison")
+load_node("hex_global_seed", "GlobalSeedHex", "GlobalSeedHex", "[HEX] Global Seed")
 
 # Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
 if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
@@ -57,15 +62,15 @@ else:
     print(f"[INFO] Nodos DEV/TEST omitidos. Activa con COMFYUI_DEV_NODES=1 para cargarlos.")
 
 # Registro de nodos legacy Flux [pending_refactor]
-load_node("pending_refactor.flux_models_loader", "FluxModelsLoader", "FluxModelsLoader", "Flux Models Loader")
-load_node("pending_refactor.flux_gguf_loader", "FluxGGUFLoader", "FluxGGUFLoader", "Flux GGUF Loader")
-load_node("pending_refactor.flux_text_prompt", "FluxTextPrompt", "FluxTextPrompt", "Flux Text Prompt")
-load_node("pending_refactor.flux_sampler_parameters", "FluxSamplerParameters", "FluxSamplerParameters", "Flux Sampler Parameters")
+# Flux Models Loader eliminado — reemplazado por hex_image_models_loader.py (HEX)
+# Flux GGUF Loader migrado a hex_image_models_loader.py (HEX)
+# Flux Text Prompt migrado a hex_image_text_prompt.py (HEX)
+# Flux Sampler Parameters migrado a hex_image_sampler_parameters.py (HEX)
 load_node("pending_refactor.flux_controlnet_loader", "FluxControlNetLoader", "FluxControlNetLoader", "Flux ControlNet Loader")
 load_node("pending_refactor.flux_controlnet_apply", "FluxControlNetApply", "FluxControlNetApply", "Flux ControlNet Apply")
 load_node("pending_refactor.flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply Preview")
 load_node("pending_refactor.flux_image_preview", "FluxImagePreview", "FluxImagePreview", "Flux Image Preview")
-load_node("pending_refactor.flux_image_comparison", "FluxImageComparison", "FluxImageComparison", "Flux Image Comparison")
+# Flux Image Comparison migrado a hex_image_comparison.py (HEX)
 load_node("pending_refactor.flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler")
 load_node("pending_refactor.flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")
 load_node("pending_refactor.flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader Beta")

@@ -2,56 +2,59 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 /**
- * Flux Image Comparison (Hover Mode):
+ * [HEX] Image Comparison (Hover Mode):
  * Interactive comparison that activates on hover once the node is used.
  * Gray slider, auto-reset, and no-click requirement.
  */
 
 app.registerExtension({
-	name: "flux_collection_advanced.FluxImageComparison",
-	async beforeRegisterNodeDef(nodeDef, nodeData, app) {
-		if (nodeData.name === "FluxImageComparison") {
-			
-			nodeDef.prototype.onNodeCreated = function() {
+	name: "flux_collection_advanced.ImageComparisonHex",
+	async beforeRegisterNodeDef(nodeType, nodeData, app) {
+		if (nodeData.name === "ImageComparisonHex") {
+
+			const onNodeCreated = nodeType.prototype.onNodeCreated;
+			nodeType.prototype.onNodeCreated = function() {
+				const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 				this.setSize([400, 400]);
-				this.slider = 1.0; 
-                this.imgA = new Image();
-                this.imgB = new Image();
-                this.imgRect = { x: 0, y: 0, w: 1, h: 1 };
+				this.slider = 1.0;
+				this.imgA = new Image();
+				this.imgB = new Image();
+				this.imgRect = { x: 0, y: 0, w: 1, h: 1 };
+				return r;
 			};
 
-			nodeDef.prototype.onExecuted = function(m) {
-                if (m.a?.[0] && m.b?.[0]) {
-                    this.imgA.src = api.apiURL(`/view?filename=${m.a[0].filename}&type=temp&subfolder=`);
-                    this.imgB.src = api.apiURL(`/view?filename=${m.b[0].filename}&type=temp&subfolder=`);
-                    this.imgA.onload = () => this.setDirtyCanvas(true);
-                    this.imgB.onload = () => this.setDirtyCanvas(true);
-                }
+			nodeType.prototype.onExecuted = function(m) {
+				if (m.a?.[0] && m.b?.[0]) {
+					this.imgA.src = api.apiURL(`/view?filename=${m.a[0].filename}&type=temp&subfolder=`);
+					this.imgB.src = api.apiURL(`/view?filename=${m.b[0].filename}&type=temp&subfolder=`);
+					this.imgA.onload = () => this.setDirtyCanvas(true);
+					this.imgB.onload = () => this.setDirtyCanvas(true);
+				}
 			};
 
-			nodeDef.prototype.onDrawBackground = function(ctx) {
+			nodeType.prototype.onDrawBackground = function(ctx) {
 				if (!this.imgA?.complete || !this.imgB?.complete) return;
-				
-                const w = this.size[0];
-                const h = this.size[1] - 40; 
-                const y_start = 40;
 
-                const imgW = this.imgA.naturalWidth;
-                const imgH = this.imgA.naturalHeight;
-                const ratio = Math.min(w / imgW, h / imgH);
-                
-                const dw = imgW * ratio;
-                const dh = imgH * ratio;
-                const dx = (w - dw) / 2;
-                const dy = y_start + (h - dh) / 2;
+				const w = this.size[0];
+				const h = this.size[1] - 40;
+				const y_start = 40;
 
-                this.imgRect = { x: dx, y: dy, w: dw, h: dh };
+				const imgW = this.imgA.naturalWidth;
+				const imgH = this.imgA.naturalHeight;
+				const ratio = Math.min(w / imgW, h / imgH);
 
-                // 1. Draw Image B (Target/Right)
+				const dw = imgW * ratio;
+				const dh = imgH * ratio;
+				const dx = (w - dw) / 2;
+				const dy = y_start + (h - dh) / 2;
+
+				this.imgRect = { x: dx, y: dy, w: dw, h: dh };
+
+				// 1. Draw Image B (Target/Right)
 				ctx.drawImage(this.imgB, dx, dy, dw, dh);
 
 				// 2. Draw Image A (Reference/Left with Clip)
-                const clipX = dw * this.slider;
+				const clipX = dw * this.slider;
 				ctx.save();
 				ctx.beginPath();
 				ctx.rect(dx, dy, clipX, dh);
@@ -69,27 +72,26 @@ app.registerExtension({
 			};
 
 			// Instant alignment on mouse move (No click needed)
-			nodeDef.prototype.onMouseMove = function(e, pos) {
+			nodeType.prototype.onMouseMove = function(e, pos) {
 				if (this.imgRect) {
-                    // Check if mouse is within horizontal image bounds
-                    if (pos[0] >= this.imgRect.x && pos[0] <= this.imgRect.x + this.imgRect.w) {
-					    this.slider = (pos[0] - this.imgRect.x) / this.imgRect.w;
-					    this.setDirtyCanvas(true);
-                        return true;
-                    }
+					if (pos[0] >= this.imgRect.x && pos[0] <= this.imgRect.x + this.imgRect.w) {
+						this.slider = (pos[0] - this.imgRect.x) / this.imgRect.w;
+						this.setDirtyCanvas(true);
+						return true;
+					}
 				}
 			};
 
-            // Ensure node gets focus on click
-            nodeDef.prototype.onMouseDown = function() {
-                return true; 
-            };
+			// Ensure node gets focus on click
+			nodeType.prototype.onMouseDown = function() {
+				return true;
+			};
 
-            // Auto-Reset when mouse leaves the node area
-            nodeDef.prototype.onMouseLeave = function() {
-                this.slider = 1.0;
-                this.setDirtyCanvas(true);
-            };
+			// Auto-Reset when mouse leaves the node area
+			nodeType.prototype.onMouseLeave = function() {
+				this.slider = 1.0;
+				this.setDirtyCanvas(true);
+			};
 		}
 	}
 });
