@@ -31,8 +31,8 @@ class WanVideoSampler_Dev:
     @classmethod
     def _load_styles(cls):
         if not cls._styles_loaded:
-            # Look for styles.csv in the node's directory
-            styles_path = os.path.join(os.path.dirname(__file__), cls._STYLES_FILENAME)
+            # styles.csv vive en la raiz del plugin, subimos un nivel desde pending_refactor/
+            styles_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), cls._STYLES_FILENAME)
             if os.path.exists(styles_path):
                 try:
                     with open(styles_path, "r", encoding="utf-8") as f:

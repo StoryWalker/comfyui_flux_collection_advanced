@@ -20,7 +20,7 @@ class WanPromptEncoder_Dev:
     @classmethod
     def _load_styles(cls):
         if not cls._styles_loaded:
-            styles_path = os.path.join(os.path.dirname(__file__), "styles.csv")
+            styles_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "styles.csv")
             if os.path.exists(styles_path):
                 try:
                     with open(styles_path, "r", encoding="utf-8") as f:

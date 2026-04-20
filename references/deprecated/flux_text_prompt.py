@@ -13,9 +13,10 @@ from comfy.comfy_types import IO, ComfyNodeABC, InputTypeDict # Keep necessary i
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Get the directory of the current Python file ---
-# This assumes the script is run within the custom node's folder structure
-current_node_directory = os.path.dirname(__file__)
+# --- Get the directory of the custom node root ---
+# El archivo fue movido a pending_refactor/, por lo que subimos un nivel
+# para mantener la ruta correcta a styles.csv
+current_node_directory = os.path.dirname(os.path.dirname(__file__))
 
 class FluxTextPrompt(ComfyNodeABC):
     """
