@@ -17,9 +17,9 @@ class ImageLoaderService:
     Application Service:
     Coordinates image loading and basic preprocessing.
     """
-    
-    def __init__(self):
-        self.io_adapter = ImageIOAdapter()
+
+    def __init__(self, io_adapter=None):
+        self.io_adapter = io_adapter if io_adapter is not None else ImageIOAdapter()
 
     def load_image(self, config: ImageLoadConfig) -> torch.Tensor:
         """
@@ -33,9 +33,9 @@ class ModelLoaderService:
     Application Service:
     Orchestrates the entire Wan 2.2 model loading process.
     """
-    
-    def __init__(self):
-        self.adapter = ComfyModelAdapter()
+
+    def __init__(self, adapter=None):
+        self.adapter = adapter if adapter is not None else ComfyModelAdapter()
 
     def load_full_wan_stack(self, config: WanModelConfig) -> dict:
         """

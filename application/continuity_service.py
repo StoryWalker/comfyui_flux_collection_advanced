@@ -17,8 +17,8 @@ class ContinuityService:
     Gestiona la logica de conmutacion entre frame inicial y frame persistente en disco.
     """
 
-    def __init__(self):
-        self.persistence = FilePersistenceAdapter()
+    def __init__(self, persistence=None):
+        self.persistence = persistence if persistence is not None else FilePersistenceAdapter()
 
     def sync_image(self, config: BufferConfig, initial_image=None, sampler_last_image=None,
                    fallback_height: int = 480, fallback_width: int = 848):

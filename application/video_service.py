@@ -19,10 +19,10 @@ class VideoGenerationService:
     and Infrastructure adapters.
     """
     
-    def __init__(self, style_map: dict):
+    def __init__(self, style_map: dict, img_adapter=None, sampler_adapter=None):
         self.style_map = style_map
-        self.img_adapter = TorchImageAdapter()
-        self.sampler_adapter = ComfySamplerAdapter()
+        self.img_adapter = img_adapter if img_adapter is not None else TorchImageAdapter()
+        self.sampler_adapter = sampler_adapter if sampler_adapter is not None else ComfySamplerAdapter()
 
     def generate_story_segment(self, settings: GenerationSettings, context: VideoStoryContext, 
                                models: dict, reference_image: any) -> tuple:

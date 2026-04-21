@@ -15,8 +15,8 @@ class ExportVideoService:
     Coordinates folder organization and video writing.
     """
     
-    def __init__(self):
-        self.saver = ImageIOSaver()
+    def __init__(self, saver=None):
+        self.saver = saver if saver is not None else ImageIOSaver()
 
     def export_video(self, manifest: VideoExportManifest, frames: any) -> str:
         """
