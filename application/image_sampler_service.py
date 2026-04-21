@@ -9,8 +9,12 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 import comfy.model_management
 
-from ..domain.models import FluxSamplerConfig
-from ..infrastructure.image_sampler_adapter import FluxSamplerAdapter
+try:
+    from domain.models import FluxSamplerConfig
+    from infrastructure.image_sampler_adapter import FluxSamplerAdapter
+except ImportError:
+    from ..domain.models import FluxSamplerConfig
+    from ..infrastructure.image_sampler_adapter import FluxSamplerAdapter
 
 logger = logging.getLogger(__name__)
 

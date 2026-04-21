@@ -14,6 +14,9 @@ export const HEX_NODES = [
 	"FluxTextPromptHex",
 	"FluxSamplerParametersHex",
 	"GlobalSeedHex",
+	"FluxControlNetLoaderHex",
+	"FluxControlNetApplyHex",
+	"FluxImagePreviewHex",
 ];
 
 // Definición centralizada de settings — usada al registrar y al restaurar desde el nodo

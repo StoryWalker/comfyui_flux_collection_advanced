@@ -7,8 +7,12 @@ import logging
 import re
 from typing import Any, Dict, List
 
-from ..domain.models import TextEncodingConfig
-from ..infrastructure.clip_encoding_adapter import ClipEncodingAdapter
+try:
+    from domain.models import TextEncodingConfig
+    from infrastructure.clip_encoding_adapter import ClipEncodingAdapter
+except ImportError:
+    from ..domain.models import TextEncodingConfig
+    from ..infrastructure.clip_encoding_adapter import ClipEncodingAdapter
 
 logger = logging.getLogger(__name__)
 

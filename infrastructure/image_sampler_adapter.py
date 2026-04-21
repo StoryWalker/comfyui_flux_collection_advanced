@@ -13,7 +13,10 @@ import comfy.sample
 import comfy.utils
 import latent_preview
 
-from ..domain.models import FluxSamplerConfig
+try:
+    from domain.models import FluxSamplerConfig
+except ImportError:
+    from ..domain.models import FluxSamplerConfig
 
 logger = logging.getLogger(__name__)
 

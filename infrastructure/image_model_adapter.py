@@ -10,7 +10,10 @@ import folder_paths
 import comfy.sd
 import comfy.utils
 from typing import Any, List
-from ..domain.models import FluxModelConfig
+try:
+    from domain.models import FluxModelConfig
+except ImportError:
+    from ..domain.models import FluxModelConfig
 
 logger = logging.getLogger(__name__)
 

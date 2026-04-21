@@ -46,6 +46,9 @@ load_node("hex_image_text_prompt", "FluxTextPromptHex", "FluxTextPromptHex", "[H
 load_node("hex_image_sampler_parameters", "FluxSamplerParametersHex", "FluxSamplerParametersHex", "[HEX] Flux Sampler Parameters")
 load_node("hex_image_comparison", "ImageComparisonHex", "ImageComparisonHex", "[HEX] Image Comparison")
 load_node("hex_global_seed", "GlobalSeedHex", "GlobalSeedHex", "[HEX] Global Seed")
+load_node("hex_image_controlnet_loader", "FluxControlNetLoaderHex", "FluxControlNetLoaderHex", "[HEX] Flux ControlNet Loader")
+load_node("hex_image_controlnet_apply", "FluxControlNetApplyHex", "FluxControlNetApplyHex", "[HEX] Flux ControlNet Apply")
+load_node("hex_image_preview", "FluxImagePreviewHex", "FluxImagePreviewHex", "[HEX] Flux Image Preview")
 
 # Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
 if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
@@ -66,10 +69,11 @@ else:
 # Flux GGUF Loader migrado a hex_image_models_loader.py (HEX)
 # Flux Text Prompt migrado a hex_image_text_prompt.py (HEX)
 # Flux Sampler Parameters migrado a hex_image_sampler_parameters.py (HEX)
-load_node("pending_refactor.flux_controlnet_loader", "FluxControlNetLoader", "FluxControlNetLoader", "Flux ControlNet Loader")
-load_node("pending_refactor.flux_controlnet_apply", "FluxControlNetApply", "FluxControlNetApply", "Flux ControlNet Apply")
+# Migrados a arquitectura hexagonal: T#15, T#16, T#17
+# load_node("pending_refactor.flux_controlnet_loader", ...)   → hex_image_controlnet_loader.py
+# load_node("pending_refactor.flux_controlnet_apply", ...)    → hex_image_controlnet_apply.py
+# load_node("pending_refactor.flux_image_preview", ...)       → hex_image_preview.py
 load_node("pending_refactor.flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply Preview")
-load_node("pending_refactor.flux_image_preview", "FluxImagePreview", "FluxImagePreview", "Flux Image Preview")
 # Flux Image Comparison migrado a hex_image_comparison.py (HEX)
 load_node("pending_refactor.flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler")
 load_node("pending_refactor.flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")

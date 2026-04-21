@@ -5,9 +5,14 @@ Servicio de aplicacion para la carga del stack completo Flux GGUF.
 Orquesta el orden de carga sin conocer los detalles de implementacion.
 """
 import logging
-from ..domain.models import FluxModelConfig
-from ..infrastructure.image_model_adapter import FluxModelAdapter
-from ..infrastructure.error_adapter import ErrorLoggingAdapter
+try:
+    from domain.models import FluxModelConfig
+    from infrastructure.image_model_adapter import FluxModelAdapter
+    from infrastructure.error_adapter import ErrorLoggingAdapter
+except ImportError:
+    from ..domain.models import FluxModelConfig
+    from ..infrastructure.image_model_adapter import FluxModelAdapter
+    from ..infrastructure.error_adapter import ErrorLoggingAdapter
 
 logger = logging.getLogger(__name__)
 
