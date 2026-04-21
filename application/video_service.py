@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
 import node_helpers
-from ..domain.models import GenerationSettings, VideoStoryContext
-from ..infrastructure.image_adapter import TorchImageAdapter
-from ..infrastructure.sampler_adapter import ComfySamplerAdapter
+try:
+    from domain.models import GenerationSettings, VideoStoryContext
+    from infrastructure.image_adapter import TorchImageAdapter
+    from infrastructure.sampler_adapter import ComfySamplerAdapter
+except ImportError:
+    from ..domain.models import GenerationSettings, VideoStoryContext
+    from ..infrastructure.image_adapter import TorchImageAdapter
+    from ..infrastructure.sampler_adapter import ComfySamplerAdapter
 
 logger = logging.getLogger(__name__)
 

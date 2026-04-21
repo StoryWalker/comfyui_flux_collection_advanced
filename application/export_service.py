@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 import logging
-from ..domain.models import VideoExportManifest
-from ..infrastructure.video_io_adapter import ImageIOSaver
+try:
+    from domain.models import VideoExportManifest
+    from infrastructure.video_io_adapter import ImageIOSaver
+except ImportError:
+    from ..domain.models import VideoExportManifest
+    from ..infrastructure.video_io_adapter import ImageIOSaver
 
 logger = logging.getLogger(__name__)
 
