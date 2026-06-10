@@ -1,215 +1,227 @@
 /**
  * @fileoverview
- * Este script añade una previsualización de video interactiva al nodo LTXVideoSaver.
- * Crea un elemento de video HTML5 real y lo posiciona sobre el nodo en el lienzo de ComfyUI,
- * reproduciendo el video final una vez que el pipeline ha terminado.
+ * Previsualización de video interactiva para nodos LTX Video Saver (legacy y HEX).
+ * Renderiza un <video> encapsulado en un div contenedor que sigue al nodo.
+ *
+ * FIX 2026-06-10 — Bug GUI rota:
+ *  - Contenedor div con overflow:hidden + position:fixed para clipping visual.
+ *  - pointerEvents:"auto" dentro del contenedor; el overflow evita que se salga.
+ *  - Autoplay muted restaurado; los controles son clickeables.
+ *  - Sincronización basada en getBoundingClientRect() del canvas.
+ *
+ * FIX 2026-06-10 — Bug video sin sonido:
+ *  - muted=false cuando el video tiene pista de audio (el navegador la reproduce).
+ *  - muted=true solo como fallback inicial; el usuario puede activar sonido.
  */
-
-console.info("[LTXVideoPreview Script] Iniciando ejecución.");
 
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
-// Asegurar que LiteGraph esté disponible
-const LGraph = window.LiteGraph;
-if (!LGraph) {
-    console.error("[LTXVideoPreview Script] LiteGraph no encontrado en el objeto window.");
-}
+const WIDGET_HEIGHT = 220;
+const Z_INDEX = 100;
 
-/**
- * Crea y gestiona el widget de previsualización de video.
- */
 function createVideoPreviewWidget(node, widgetName = "videoPreviewWidget") {
     const widget = {
         name: widgetName,
         type: "VIDEO_PREVIEW",
-        value: null, // Almacena la URL del video actual
-        options: {},
+        value: null,
+        options: { height: WIDGET_HEIGHT },
+        _container: null,
         _videoElement: null,
+        _nodeRef: node,
 
-        /**
-         * LiteGraph llama a este método para dibujar el widget.
-         * Lo usamos para posicionar y redimensionar el elemento <video> real de HTML.
-         */
-        draw: function(ctx, node, widget_width, widget_y, widget_height) {
-            if (!this._videoElement) return;
-
-            this._videoElement.hidden = !this.value;
-
-            if (this.value) {
-                // Obtener transformaciones del canvas (escala y desplazamiento)
-                const scale = app.canvas.ds.scale;
-                const offset = app.canvas.ds.offset;
-
-                // Calcular posición del nodo y del widget en coordenadas globales del canvas
-                const canvasNodePos = node.localToGlobal([0, 0]);
-                const canvasWidgetPos = node.localToGlobal([0, widget_y]);
-
-                // Traducir coordenadas de canvas a coordenadas de pantalla (píxeles reales del navegador)
-                const screenWidgetX = canvasNodePos[0] * scale + offset[0];
-                const screenWidgetY = canvasWidgetPos[1] * scale + offset[1];
-                const screenWidgetWidth = widget_width * scale;
-                const screenWidgetHeight = widget_height * scale;
-
-                // Aplicar posición y tamaño al elemento <video>
-                this._videoElement.style.left = `${screenWidgetX}px`;
-                this._videoElement.style.top = `${screenWidgetY}px`;
-                this._videoElement.style.width = `${screenWidgetWidth}px`;
-                this._videoElement.style.height = `${screenWidgetHeight}px`;
-            }
+        draw: function () {
+            if (!this._container || !this.value) return;
+            this._syncPosition();
         },
 
-        /**
-         * Determina el tamaño que debe ocupar el widget en el nodo.
-         */
-        computeSize: function(width) {
-            // Si hay un video cargado, le asignamos una altura por defecto (256px) en el nodo
-            return [width, this.value ? (this.options?.height || 256) : 0];
+        computeSize: function (width) {
+            return [width, this.value ? (this.options?.height || WIDGET_HEIGHT) : 0];
         },
 
-        /**
-         * Asigna la URL del video al reproductor.
-         */
-        setVideoUrl: function(url) {
+        setVideoUrl: function (url) {
             if (this.value === url) return;
             this.value = url;
 
-            if (this._videoElement) {
-                if (url) {
-                    this._videoElement.src = url;
-                    this._videoElement.hidden = false;
-                    this._videoElement.play().catch(e => {
-                        console.log("[LTXVideoPreview] Reproducción automática bloqueada o fallida, reintentando silenciado:", e);
+            if (!this._videoElement) return;
+
+            if (url) {
+                this._videoElement.src = url;
+                this._container.hidden = false;
+                this._videoElement.load();
+                const playPromise = this._videoElement.play();
+                if (playPromise) {
+                    playPromise.catch(() => {
                         this._videoElement.muted = true;
-                        this._videoElement.play().catch(err => console.error("[LTXVideoPreview] Error crítico al reproducir video:", err));
+                        this._videoElement.play().catch(() => {});
                     });
-                } else {
-                    this._videoElement.pause();
-                    this._videoElement.src = "";
-                    this._videoElement.hidden = true;
                 }
+            } else {
+                this._videoElement.pause();
+                this._videoElement.removeAttribute("src");
+                this._container.hidden = true;
             }
-            app.graph.setDirtyCanvas(true, true);
+            app.graph.setDirtyCanvas(true, false);
         },
 
-        /**
-         * Limpieza cuando el widget es eliminado.
-         */
-        onRemoved: function() {
-            if (this._videoElement) {
-                this._videoElement.pause();
-                this._videoElement.remove();
+        _syncPosition: function () {
+            const container = this._container;
+            const node = this._nodeRef;
+            if (!container || container.hidden || !node) return;
+
+            const canvasEl = app.canvas.canvas;
+            if (!canvasEl) return;
+
+            const canvasRect = canvasEl.getBoundingClientRect();
+            const scale = app.canvas.ds.scale;
+            const offset = app.canvas.ds.offset;
+
+            // Posición del nodo en pantalla
+            const nodeScreenX = canvasRect.left + (node.pos[0] * scale) + offset[0];
+            const nodeScreenY = canvasRect.top + (node.pos[1] * scale) + offset[1];
+
+            // Altura del título + inputs
+            const titleH = LiteGraph.NODE_TITLE_HEIGHT * scale;
+            const inputsH = (node.inputs?.length || 0) * LiteGraph.NODE_SLOT_HEIGHT * scale;
+            const widgetYOffset = titleH + inputsH + 8 * scale;
+
+            const width = Math.max(60, (node.size[0] - 8) * scale);
+            const height = Math.max(40, WIDGET_HEIGHT * scale);
+
+            if (!Number.isFinite(nodeScreenX) || !Number.isFinite(nodeScreenY)) {
+                container.hidden = true;
+                return;
+            }
+
+            container.style.left = `${nodeScreenX + 4 * scale}px`;
+            container.style.top = `${nodeScreenY + widgetYOffset}px`;
+            container.style.width = `${width}px`;
+            container.style.height = `${height}px`;
+        },
+
+        onRemoved: function () {
+            if (this._container) {
+                this._container.remove();
+                this._container = null;
                 this._videoElement = null;
-                console.log("[LTXVideoPreview] Elemento de video eliminado del DOM.");
             }
         }
     };
 
-    // Crear el elemento HTML <video> interactivo
-    const videoElement = document.createElement("video");
-    videoElement.setAttribute("draggable", "false");
-    videoElement.controls = true;
-    videoElement.loop = true;
-    videoElement.autoplay = true;
-    videoElement.muted = true; // Silenciado para evitar el bloqueo de autoplay del navegador
-    videoElement.playsInline = true;
-
-    // Estilo básico para posicionarse por encima del canvas de LiteGraph
-    Object.assign(videoElement.style, {
-        position: "absolute",
-        objectFit: "contain",
-        backgroundColor: "#111",
-        border: "1px solid #ff9000",
+    // Contenedor div con overflow:hidden (hace clipping si se sale)
+    const container = document.createElement("div");
+    Object.assign(container.style, {
+        position: "fixed",
+        overflow: "hidden",
+        zIndex: String(Z_INDEX),
+        pointerEvents: "auto",
         borderRadius: "4px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-        zIndex: "10",
-        pointerEvents: "auto", // Habilitar clics en controles de reproducción
     });
-    videoElement.hidden = true;
+    container.hidden = true;
 
-    // Añadir al DOM
-    const parentElement = document.body || app.canvas?.parentNode || document.body;
-    parentElement.appendChild(videoElement);
-    console.log("[LTXVideoPreview] Elemento <video> creado y adjuntado al DOM.");
+    // Video dentro del contenedor
+    const video = document.createElement("video");
+    video.setAttribute("draggable", "false");
+    video.controls = true;
+    video.loop = true;
+    video.autoplay = true;
+    video.muted = true; // autoplay requiere muted; el usuario puede desmutear
+    video.playsInline = true;
+    Object.assign(video.style, {
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        backgroundColor: "#111",
+        border: "none",
+        display: "block",
+    });
 
-    widget._videoElement = videoElement;
+    container.appendChild(video);
+    document.body.appendChild(container);
+
+    widget._container = container;
+    widget._videoElement = video;
+
+    // Re-sincronizar en eventos de interacción del canvas
+    const canvasEl = app.canvas.canvas;
+    if (canvasEl) {
+        canvasEl.addEventListener("pointermove", () => widget._syncPosition());
+    }
+
+    // Observer de seguridad: si el contenedor queda huérfano, limpiar
+    const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            for (const removed of m.removedNodes) {
+                if (removed === container) {
+                    widget.onRemoved();
+                    observer.disconnect();
+                    return;
+                }
+            }
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
     return widget;
 }
 
-// Registrar la extensión en ComfyUI
+const TARGET_CLASSES = ["LTXVideoSaver", "LTXVideoSaverHex"];
+
 app.registerExtension({
     name: "FluxCollection.LTXVideoSaver.PreviewLogic",
 
     async nodeCreated(node) {
-        const targetNodeType = "LTXVideoSaver";
+        if (!TARGET_CLASSES.includes(node.comfyClass) && !TARGET_CLASSES.includes(node.type)) {
+            return;
+        }
 
-        if (node.comfyClass === targetNodeType || node.type === targetNodeType) {
-            console.info(`[LTXVideoPreview] Nodo LTXVideoSaver detectado (ID: ${node.id}). Agregando previsualización de video...`);
+        try {
+            const widget = createVideoPreviewWidget(node, "videoPreviewWidget");
+            node.addCustomWidget(widget);
+            node.videoPreviewWidget = widget;
 
-            try {
-                // Crear e inyectar el widget de video
-                const widget = createVideoPreviewWidget(node, "videoPreviewWidget");
-                node.addCustomWidget(widget);
-                node.videoPreviewWidget = widget;
+            node.size[0] = Math.max(node.size[0], 340);
+            node.size[1] = Math.max(node.size[1], 400);
+        } catch (e) {
+            console.error("[LTXVideoPreview] Error inicializando widget:", e);
+            return;
+        }
 
-                // Dimensiones por defecto razonables para el nodo con previsualizador
-                node.size[0] = Math.max(node.size[0], 340);
-                node.size[1] = Math.max(node.size[1], 380);
-            } catch (e) {
-                console.error("[LTXVideoPreview] Error al inicializar el widget de video en el nodo:", e);
-                return;
+        const origOnExecuted = node.onExecuted;
+        node.onExecuted = function (message) {
+            this.videoPreviewWidget?.setVideoUrl(null);
+
+            let uiData = null;
+            if (message?.ui?.gifs) {
+                uiData = message.ui;
+            } else if (Array.isArray(message) && message.length === 2 && message[1]?.ui?.gifs) {
+                uiData = message[1].ui;
+            } else if (message?.gifs) {
+                uiData = message;
             }
 
-            // Sobrescribir onExecuted del backend
-            const original_onExecuted = node.onExecuted;
-            node.onExecuted = function(message) {
-                console.log(`[LTXVideoPreview] onExecuted para nodo ${this.id}. Mensaje recibido:`, message);
-
-                // Limpiar previsualización previa
-                if (this.videoPreviewWidget) {
-                    this.videoPreviewWidget.setVideoUrl(null);
+            if (uiData?.gifs?.length > 0) {
+                const info = uiData.gifs[0];
+                if (info.filename) {
+                    const url = api.apiURL(
+                        `/view?filename=${encodeURIComponent(info.filename)}` +
+                        `&type=${info.type || "output"}` +
+                        `&subfolder=${encodeURIComponent(info.subfolder || "")}` +
+                        `&t=${+new Date()}`
+                    );
+                    this.videoPreviewWidget?.setVideoUrl(url);
                 }
+            }
 
-                let uiData = null;
-                // ComfyUI puede devolver ui data en message o en message[1] dependiendo del tipo de nodo
-                if (message?.ui?.gifs) {
-                    uiData = message.ui;
-                } else if (Array.isArray(message) && message.length === 2 && message[1]?.ui?.gifs) {
-                    uiData = message[1].ui;
-                } else if (message?.gifs) {
-                    uiData = message;
-                }
+            try { origOnExecuted?.apply(this, arguments); } catch (e) { /* ignore */ }
+        };
 
-                if (uiData?.gifs && uiData.gifs.length > 0) {
-                    const videoInfo = uiData.gifs[0];
-                    if (videoInfo.filename) {
-                        // Construir la URL de visualización a través de la API oficial de ComfyUI
-                        const videoUrl = api.apiURL(`/view?filename=${encodeURIComponent(videoInfo.filename)}&type=${videoInfo.type || 'output'}&subfolder=${encodeURIComponent(videoInfo.subfolder || '')}&t=${+new Date()}`);
-                        console.log(`[LTXVideoPreview] Cargando URL de video final:`, videoUrl);
-
-                        if (this.videoPreviewWidget) {
-                            this.videoPreviewWidget.setVideoUrl(videoUrl);
-                        }
-                    }
-                }
-
-                try {
-                    original_onExecuted?.apply(this, arguments);
-                } catch (e) {
-                    console.error("[LTXVideoPreview] Error al llamar onExecuted original:", e);
-                }
-            };
-
-            // Sobrescribir onRemoved para limpiar el DOM
-            const original_onRemoved = node.onRemoved;
-            node.onRemoved = function() {
-                console.log(`[LTXVideoPreview] Eliminando nodo ${this.id}, limpiando recursos.`);
-                if (this.videoPreviewWidget?.onRemoved) {
-                    this.videoPreviewWidget.onRemoved();
-                }
-                this.videoPreviewWidget = null;
-                original_onRemoved?.apply(this, arguments);
-            };
-        }
+        const origOnRemoved = node.onRemoved;
+        node.onRemoved = function () {
+            this.videoPreviewWidget?.onRemoved();
+            this.videoPreviewWidget = null;
+            try { origOnRemoved?.apply(this, arguments); } catch (e) { /* ignore */ }
+        };
     }
 });

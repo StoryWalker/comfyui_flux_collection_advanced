@@ -173,3 +173,65 @@ class PromptSequence:
         return self.current_index + 1
 
 
+# Task-Source: T#29
+@dataclass(frozen=True)
+class LTXPipelineConfig:
+    """ Entidad de dominio pura para la configuración del pipeline LTX Video 2.3 """
+    checkpoint_path: str
+    gemma_root: str
+    upsampler_path: str
+    vae_video_path: str = ""
+    audio_vae_path: str = ""
+    connector_path: str = ""
+    pipeline_type: str = "fast"  # "fast" | "distilled_gguf"
+    device: str = "cuda"
+
+    def __post_init__(self):
+        if self.pipeline_type not in ("fast", "distilled_gguf"):
+            raise ValueError(f"pipeline_type must be 'fast' or 'distilled_gguf', got '{self.pipeline_type}'.")
+        if self.device not in ("cuda", "cpu"):
+            raise ValueError(f"device must be 'cuda' or 'cpu', got '{self.device}'.")
+        if not self.checkpoint_path or self.checkpoint_path == "None":
+            raise ValueError("checkpoint_path cannot be empty.")
+        if not self.gemma_root or self.gemma_root == "None":
+            raise ValueError("gemma_root cannot be empty.")
+        if not self.upsampler_path or self.upsampler_path == "None":
+            raise ValueError("upsampler_path cannot be empty.")
+
+    @property
+    def is_gguf(self) -> bool:
+        return self.pipeline_type == "distilled_gguf"
+
+
+@dataclass(frozen=True)
+class LTXGenerationSettings:
+    """ Entidad de dominio pura para los parámetros de generación de video LTX 2.3 """
+    prompt: str
+    width: int
+    height: int
+    num_frames: int
+    frame_rate: float
+    seed: int
+    strength: float = 1.0
+    image_path: str = ""  # Condicionamiento de imagen (I2V) opcional
+
+    def __post_init__(self):
+        if self.width % 32 != 0 or self.height % 32 != 0:
+            raise ValueError("Width and height must be multiples of 32 for LTX 2.3.")
+        if self.num_frames < 9 or self.num_frames > 257:
+            raise ValueError("num_frames must be between 9 and 257.")
+        # LTX requiere num_frames = 8k + 1 (ej: 9, 17, 25, ..., 97, ..., 257)
+        if (self.num_frames - 1) % 8 != 0:
+            raise ValueError("num_frames must follow 8k+1 pattern (e.g., 9, 17, 25, ..., 257).")
+        if self.frame_rate < 1.0 or self.frame_rate > 120.0:
+            raise ValueError("frame_rate must be between 1.0 and 120.0.")
+        if self.strength < 0.0 or self.strength > 1.0:
+            raise ValueError("strength must be between 0.0 and 1.0.")
+        if self.seed < 0:
+            raise ValueError("seed must be non-negative.")
+
+    @property
+    def use_image_conditioning(self) -> bool:
+        return bool(self.image_path and self.image_path != "None")
+
+

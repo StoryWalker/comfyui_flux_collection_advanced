@@ -15,70 +15,123 @@ except ImportError:
 
 import folder_paths
 
+# ---------------------------------------------------------------------------
+# Registrar .gguf como extensión soportada en las categorías relevantes.
+# ComfyUI por defecto solo soporta .safetensors, .ckpt, .pt, etc.
+# Sin esto, get_filename_list() nunca retornará archivos .gguf.
+# ---------------------------------------------------------------------------
+_GGUF_EXT = {".gguf"}
+for _cat in ("diffusion_models", "checkpoints", "unet"):
+    try:
+        _info = folder_paths.folder_names_and_paths.get(_cat)
+        if _info is not None:
+            _paths, _exts = _info
+            if ".gguf" not in _exts:
+                _exts.update(_GGUF_EXT)
+    except Exception:
+        pass
+
 # Intento de importación relativa (ComfyUI) o absoluta (tests)
 try:
-    from .ltx_backend import LTXDistilledGGUFVideoPipeline, LTXFastVideoPipeline, default_tiling_config
+    from .ltx_backend import (
+        LTXDistilledGGUFVideoPipeline,
+        LTXFastVideoPipeline,
+        default_tiling_config,
+        extract_video_audio,
+        save_audio_wav,
+        mux_video_audio_with_ffmpeg,
+    )
 except ImportError:
-    from ltx_backend import LTXDistilledGGUFVideoPipeline, LTXFastVideoPipeline, default_tiling_config
+    from ltx_backend import (
+        LTXDistilledGGUFVideoPipeline,
+        LTXFastVideoPipeline,
+        default_tiling_config,
+        extract_video_audio,
+        save_audio_wav,
+        mux_video_audio_with_ffmpeg,
+    )
 
 
-def scan_ltx_files(comfyui_folder_type, extension_or_dir, default_file=None):
+def scan_ltx_files(folder_types, extension_or_dir, default_file=None):
     """
     Escanea carpetas nativas de ComfyUI para retornar una lista de modelos disponibles.
+    Acepta una categoría única (str) o múltiples categorías (list/tuple) para buscar
+    en varios sitios simultáneamente (ej: ['diffusion_models', 'checkpoints']).
     """
+    if isinstance(folder_types, str):
+        folder_types = [folder_types]
+
     files = []
-    
-    if comfyui_folder_type:
+
+    for folder_type in folder_types:
         try:
-            comfy_files = folder_paths.get_filename_list(comfyui_folder_type)
+            comfy_files = folder_paths.get_filename_list(folder_type)
             for f in comfy_files:
                 if extension_or_dir == "dir":
-                    full_p = folder_paths.get_full_path(comfyui_folder_type, f)
+                    full_p = folder_paths.get_full_path(folder_type, f)
                     if full_p and os.path.isdir(full_p):
-                        files.append(f)
+                        if f not in files:
+                            files.append(f)
                 else:
                     if f.endswith(extension_or_dir) and f not in files:
                         files.append(f)
         except Exception:
             pass
-            
+
+    # Solo insertar el default si no hay un archivo real cuyo basename coincida.
+    # Esto previene entradas duplicadas cuando el archivo está en una subcarpeta
+    # (ej: 'ltx\ltx-2.3-22b-distilled-Q4_K_M.gguf' vs 'ltx-2.3-22b-distilled-Q4_K_M.gguf')
     if default_file and default_file not in files:
-        files.insert(0, default_file)
-        
+        basenames = {os.path.basename(f) for f in files}
+        if os.path.basename(default_file) not in basenames:
+            files.insert(0, default_file)
+
     if not files:
         files.append("None")
-        
+
     return sorted(list(set(files)))
 
 
-def resolve_ltx_path(filename, comfyui_folder_type=None):
+
+def resolve_ltx_path(filename, folder_types=None):
     """
     Resuelve la ruta completa de un modelo en ComfyUI.
-    Si el archivo no existe en disco, retorna la ruta donde se esperaba encontrar.
+    Acepta una categoría única (str) o múltiples categorías (list/tuple).
+    Busca secuencialmente hasta encontrar el archivo en disco.
+    Si el archivo no existe, retorna la ruta donde se esperaba encontrar.
     """
     if not filename or filename == "None":
         return None
-        
+
     if os.path.isabs(filename):
         return filename
-        
-    if comfyui_folder_type:
+
+    if folder_types is None:
+        return None
+
+    if isinstance(folder_types, str):
+        folder_types = [folder_types]
+
+    # Fase 1: buscar el archivo real en todas las categorías
+    for folder_type in folder_types:
         try:
-            full_path = folder_paths.get_full_path(comfyui_folder_type, filename)
-            if full_path:
+            full_path = folder_paths.get_full_path(folder_type, filename)
+            if full_path and os.path.exists(full_path):
                 return full_path
-                
-            # Si get_full_path retorna None (por no existir), construimos la ruta esperada
-            paths = folder_paths.get_folder_paths(comfyui_folder_type)
+        except Exception:
+            pass
+
+    # Fase 2: construir la ruta esperada (para mensajes de error descriptivos)
+    for folder_type in folder_types:
+        try:
+            paths = folder_paths.get_folder_paths(folder_type)
             if paths:
                 return os.path.join(paths[0], filename)
         except Exception:
             pass
-            
-        # Fallback descriptivo si no hay paths registrados en folder_paths
-        return os.path.join("models", comfyui_folder_type or "", filename)
-            
-    return None
+
+    # Fallback descriptivo
+    return os.path.join("models", folder_types[0] if folder_types else "", filename)
 
 
 class LTXDistilledGGUFPipelineLoader:
@@ -87,14 +140,21 @@ class LTXDistilledGGUFPipelineLoader:
     Carga el transformador cuantizado (Q4_K_M GGUF) y sus modelos acompañantes (VAEs, Conector, Gemma)
     nativamente desde las carpetas de ComfyUI en una instancia optimizada de DistilledPipeline.
     """
+    # Categorías de folder_paths donde se buscan los recursos
+    _GGUF_CATEGORIES = ["diffusion_models", "checkpoints", "unet"]
+    _GEMMA_CATEGORIES = ["clip", "text_encoders"]
+    _UPSCALER_CATEGORIES = ["latent_upscale_models", "upscale_models"]
+    _VAE_CATEGORIES = ["vae"]
+    _CONNECTOR_CATEGORIES = ["text_encoders", "clip"]
+
     @classmethod
     def INPUT_TYPES(s):
-        gguf_list = scan_ltx_files("checkpoints", ".gguf", "ltx-2.3-22b-distilled-Q4_K_M.gguf")
-        gemma_list = scan_ltx_files("clip", "dir", "gemma-3-12b-it-qat-q4_0-unquantized")
-        upscaler_list = scan_ltx_files("upscale_models", ".safetensors", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors")
-        vae_list = scan_ltx_files("vae", ".safetensors", "ltx-2.3-22b-dev_video_vae.safetensors")
-        audio_vae_list = scan_ltx_files("vae", ".safetensors", "ltx-2.3-22b-dev_audio_vae.safetensors")
-        connector_list = scan_ltx_files("clip", ".safetensors", "ltx-2.3-22b-dev_embeddings_connectors.safetensors")
+        gguf_list = scan_ltx_files(s._GGUF_CATEGORIES, ".gguf", "ltx-2.3-22b-distilled-Q4_K_M.gguf")
+        gemma_list = scan_ltx_files(s._GEMMA_CATEGORIES, "dir", "gemma-3-12b-it-qat-q4_0-unquantized")
+        upscaler_list = scan_ltx_files(s._UPSCALER_CATEGORIES, ".safetensors", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors")
+        vae_list = scan_ltx_files(s._VAE_CATEGORIES, ".safetensors", "ltx-2.3-22b-dev_video_vae.safetensors")
+        audio_vae_list = scan_ltx_files(s._VAE_CATEGORIES, ".safetensors", "ltx-2.3-22b-dev_audio_vae.safetensors")
+        connector_list = scan_ltx_files(s._CONNECTOR_CATEGORIES, ".safetensors", "ltx-2.3-22b-dev_embeddings_connectors.safetensors")
 
         return {
             "required": {
@@ -114,14 +174,15 @@ class LTXDistilledGGUFPipelineLoader:
     CATEGORY = "flux_collection_advanced/ltx"
 
     def load_pipeline(self, gguf_checkpoint, gemma_directory, spatial_upscaler, vae_video, audio_vae, connector, device):
-        gguf_checkpoint_path = resolve_ltx_path(gguf_checkpoint, "checkpoints")
-        gemma_path_or_dir = resolve_ltx_path(gemma_directory, "clip")
-        spatial_upscaler_path = resolve_ltx_path(spatial_upscaler, "upscale_models")
-        vae_video_path = resolve_ltx_path(vae_video, "vae")
-        audio_vae_path = resolve_ltx_path(audio_vae, "vae")
-        connector_path = resolve_ltx_path(connector, "clip")
+        gguf_checkpoint_path = resolve_ltx_path(gguf_checkpoint, self._GGUF_CATEGORIES)
+        gemma_path_or_dir = resolve_ltx_path(gemma_directory, self._GEMMA_CATEGORIES)
+        spatial_upscaler_path = resolve_ltx_path(spatial_upscaler, self._UPSCALER_CATEGORIES)
+        vae_video_path = resolve_ltx_path(vae_video, self._VAE_CATEGORIES)
+        audio_vae_path = resolve_ltx_path(audio_vae, self._VAE_CATEGORIES)
+        connector_path = resolve_ltx_path(connector, self._CONNECTOR_CATEGORIES)
 
         # Validar existencia antes de inicializar
+        missing_resources = []
         for name, p in [
             ("gguf_checkpoint", gguf_checkpoint_path),
             ("gemma_directory", gemma_path_or_dir),
@@ -131,7 +192,16 @@ class LTXDistilledGGUFPipelineLoader:
             ("connector", connector_path)
         ]:
             if not p or not os.path.exists(p):
-                raise FileNotFoundError(f"[LTX Loader Error] No se pudo encontrar el recurso: {name} (ruta esperada: {p})")
+                missing_resources.append((name, p))
+
+        if missing_resources:
+            msg_lines = ["[LTX Loader Error] Faltan los siguientes recursos:"]
+            for name, p in missing_resources:
+                msg_lines.append(f"  • {name}: {p}")
+            msg_lines.append("")
+            msg_lines.append("Consulta ltx_models.md para la lista completa de modelos requeridos.")
+            msg_lines.append("Descarga los modelos LTX 2.3 y colócalos en las carpetas de ComfyUI indicadas.")
+            raise FileNotFoundError("\n".join(msg_lines))
 
         torch_device = torch.device(device)
         pipeline = LTXDistilledGGUFVideoPipeline.create(
@@ -151,11 +221,16 @@ class LTXFastPipelineLoader:
     [LTX] Fast Pipeline Loader:
     Carga el transformador estándar de LTX (SafeTensors) en fp8/bf16 de forma nativa desde ComfyUI.
     """
+    # Categorías de folder_paths donde se buscan los recursos
+    _CHECKPOINT_CATEGORIES = ["diffusion_models", "checkpoints", "unet"]
+    _GEMMA_CATEGORIES = ["clip", "text_encoders"]
+    _UPSCALER_CATEGORIES = ["latent_upscale_models", "upscale_models"]
+
     @classmethod
     def INPUT_TYPES(s):
-        checkpoint_list = scan_ltx_files("checkpoints", ".safetensors", "ltx-2.3-22b-distilled.safetensors")
-        gemma_list = scan_ltx_files("clip", "dir", "gemma-3-12b-it-qat-q4_0-unquantized")
-        upscaler_list = scan_ltx_files("upscale_models", ".safetensors", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors")
+        checkpoint_list = scan_ltx_files(s._CHECKPOINT_CATEGORIES, ".safetensors", "ltx-2.3-22b-distilled.safetensors")
+        gemma_list = scan_ltx_files(s._GEMMA_CATEGORIES, "dir", "gemma-3-12b-it-qat-q4_0-unquantized")
+        upscaler_list = scan_ltx_files(s._UPSCALER_CATEGORIES, ".safetensors", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors")
 
         return {
             "required": {
@@ -172,18 +247,28 @@ class LTXFastPipelineLoader:
     CATEGORY = "flux_collection_advanced/ltx"
 
     def load_pipeline(self, checkpoint, gemma_directory, spatial_upscaler, device):
-        checkpoint_path = resolve_ltx_path(checkpoint, "checkpoints")
-        gemma_path_or_dir = resolve_ltx_path(gemma_directory, "clip")
-        spatial_upscaler_path = resolve_ltx_path(spatial_upscaler, "upscale_models")
+        checkpoint_path = resolve_ltx_path(checkpoint, self._CHECKPOINT_CATEGORIES)
+        gemma_path_or_dir = resolve_ltx_path(gemma_directory, self._GEMMA_CATEGORIES)
+        spatial_upscaler_path = resolve_ltx_path(spatial_upscaler, self._UPSCALER_CATEGORIES)
 
         # Validar existencia antes de inicializar
+        missing_resources = []
         for name, p in [
             ("checkpoint", checkpoint_path),
             ("gemma_directory", gemma_path_or_dir),
             ("spatial_upscaler", spatial_upscaler_path)
         ]:
             if not p or not os.path.exists(p):
-                raise FileNotFoundError(f"[LTX Loader Error] No se pudo encontrar el recurso: {name} (ruta esperada: {p})")
+                missing_resources.append((name, p))
+
+        if missing_resources:
+            msg_lines = ["[LTX Fast Loader Error] Faltan los siguientes recursos:"]
+            for name, p in missing_resources:
+                msg_lines.append(f"  • {name}: {p}")
+            msg_lines.append("")
+            msg_lines.append("Consulta ltx_models.md para la lista completa de modelos requeridos.")
+            msg_lines.append("Descarga los modelos LTX 2.3 y colócalos en las carpetas de ComfyUI indicadas.")
+            raise FileNotFoundError("\n".join(msg_lines))
 
         torch_device = torch.device(device)
         pipeline = LTXFastVideoPipeline.create(
@@ -219,8 +304,8 @@ class LTXVideoSampler:
             }
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("images",)
+    RETURN_TYPES = ("IMAGE", "LTX_AUDIO")
+    RETURN_NAMES = ("images", "audio")
     FUNCTION = "sample"
     CATEGORY = "flux_collection_advanced/ltx"
 
@@ -249,7 +334,7 @@ class LTXVideoSampler:
 
         try:
             # Ejecutamos la inferencia de forma aislada
-            video = ltx_pipeline._run_inference(
+            result = ltx_pipeline._run_inference(
                 prompt=prompt,
                 seed=seed,
                 height=height,
@@ -260,19 +345,17 @@ class LTXVideoSampler:
                 tiling_config=tiling_config,
             )
             
-            if isinstance(video, tuple):
-                video_tensor = video[0]
-            else:
-                video_tensor = video
-                
-            if not isinstance(video_tensor, torch.Tensor):
-                video_tensor = torch.cat(list(video_tensor), dim=0)
+            video_tensor, audio_np, sampling_rate = extract_video_audio(result)
             
             # video_tensor tiene forma [frames, height, width, 3] en escala [0, 255]
             # ComfyUI espera [frames, height, width, 3] float32 [0.0, 1.0]
             comfyui_images = video_tensor.to(dtype=torch.float32) / 255.0
             
-            return (comfyui_images,)
+            audio_data = None
+            if audio_np is not None:
+                audio_data = (audio_np, sampling_rate)
+            
+            return (comfyui_images, audio_data)
             
         finally:
             # Eliminar archivo temporal
@@ -297,6 +380,9 @@ class LTXVideoSaver:
                 "images": ("IMAGE",),
                 "fps": ("INT", {"default": 24, "min": 1, "max": 120}),
                 "filename_prefix": ("STRING", {"default": "LTX_Video"}),
+            },
+            "optional": {
+                "audio": ("LTX_AUDIO",),
             }
         }
 
@@ -305,7 +391,7 @@ class LTXVideoSaver:
     OUTPUT_NODE = True
     CATEGORY = "flux_collection_advanced/ltx"
 
-    def save_video(self, images, fps, filename_prefix):
+    def save_video(self, images, fps, filename_prefix, audio=None):
         import imageio
         
         base_output = folder_paths.get_output_directory()
@@ -328,6 +414,29 @@ class LTXVideoSaver:
             
         # Guardamos usando imageio
         imageio.mimwrite(full_path, video_data, fps=fps, quality=8, macro_block_size=16)
+        
+        # Si hay audio, mezclar con ffmpeg
+        if audio is not None:
+            try:
+                audio_np, sampling_rate = audio
+                audio_filename = f"{filename_prefix}_{timestamp}.wav"
+                audio_path = os.path.join(target_dir, audio_filename)
+                save_audio_wav(audio_path, audio_np, sampling_rate)
+                
+                # Mezclar video + audio con ffmpeg
+                muxed_filename = f"{filename_prefix}_{timestamp}_audio.mp4"
+                muxed_path = os.path.join(target_dir, muxed_filename)
+                mux_video_audio_with_ffmpeg(full_path, audio_path, muxed_path)
+                
+                # Reemplazar el MP4 original con el mezclado
+                os.replace(muxed_path, full_path)
+                # Limpiar WAV temporal
+                try:
+                    os.unlink(audio_path)
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"[LTX VideoSaver] Advertencia: no se pudo mezclar audio: {e}")
         
         # ComfyUI usa el diccionario "ui" con la clave "gifs" para mostrar el video interactivo en la UI
         subfolder_formatted = subfolder.replace("\\", "/")

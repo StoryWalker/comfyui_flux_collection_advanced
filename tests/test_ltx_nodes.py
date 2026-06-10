@@ -111,14 +111,15 @@ class TestLTXNodes(unittest.TestCase):
             strength=1.0
         )
 
-        self.assertEqual(len(result), 1)
-        output_tensor = result[0]
+        self.assertEqual(len(result), 2)
+        output_tensor, audio_data = result
         # Verify shape remains [F, H, W, C]
         self.assertEqual(output_tensor.shape, torch.Size([4, 64, 64, 3]))
         # Verify it has been scaled down to [0.0, 1.0] float32
         self.assertEqual(output_tensor.dtype, torch.float32)
         self.assertTrue(output_tensor.max() <= 1.0)
         self.assertTrue(output_tensor.min() >= 0.0)
+        self.assertIsNone(audio_data)
 
     @patch("ltx_nodes.default_tiling_config")
     def test_sampler_with_image_creates_temp_file(self, mock_tiling):

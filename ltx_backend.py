@@ -339,6 +339,99 @@ def default_tiling_config():
     )
 
 
+def extract_video_audio(result: object) -> tuple:
+    """
+    Extrae video y audio del resultado del pipeline LTX Distilled.
+    El pipeline retorna tuple(Iterator[torch.Tensor], Audio) o solo video.
+
+    Returns:
+        (video_tensor, audio_waveform_np, sampling_rate)
+        audio_waveform_np puede ser None si no hay audio.
+    """
+    audio_np: np.ndarray | None = None
+    sampling_rate: int = 0
+    video_tensor: torch.Tensor | None = None
+
+    if isinstance(result, tuple) and len(result) >= 2:
+        video_part = result[0]
+        audio_part = result[1]
+    else:
+        video_part = result
+        audio_part = None
+
+    # Normalizar video a tensor torch [frames, H, W, 3]
+    if isinstance(video_part, torch.Tensor):
+        video_tensor = video_part
+    elif hasattr(video_part, '__iter__'):
+        tensors = list(video_part)
+        if tensors and tensors[0].dim() == 3:
+            video_tensor = torch.stack(tensors, dim=0)
+        else:
+            video_tensor = torch.cat(tensors, dim=0)
+    else:
+        video_tensor = video_part
+
+    # Extraer audio
+    if audio_part is not None:
+        try:
+            waveform = getattr(audio_part, "waveform", None)
+            sampling_rate = getattr(audio_part, "sampling_rate", 0)
+            if waveform is not None and sampling_rate > 0:
+                # waveform: torch.Tensor, posible forma [channels, samples] o [samples]
+                w = waveform.detach().cpu()
+                if w.dim() == 1:
+                    w = w.unsqueeze(0)  # [1, samples]
+                elif w.dim() > 2:
+                    w = w.reshape(w.shape[-2], w.shape[-1])
+                # Normalizar a int16 para WAV
+                w_np = w.numpy()
+                if w_np.dtype in (np.float32, np.float64):
+                    # Asumir rango [-1, 1] o verificar
+                    peak = np.abs(w_np).max()
+                    if peak > 1.0:
+                        w_np = w_np / peak
+                    w_np = (w_np * 32767.0).clip(-32768, 32767).astype(np.int16)
+                audio_np = w_np
+        except Exception as e:
+            logger.warning(f"[LTX] No se pudo extraer audio del pipeline: {e}")
+
+    return video_tensor, audio_np, sampling_rate
+
+
+def save_audio_wav(path: str, waveform_np: np.ndarray, sampling_rate: int) -> None:
+    """Guarda audio numpy int16 [channels, samples] como archivo WAV."""
+    try:
+        from scipy.io import wavfile
+        wavfile.write(path, sampling_rate, waveform_np.T if waveform_np.ndim > 1 else waveform_np)
+    except Exception as e:
+        logger.error(f"[LTX] Error guardando WAV: {e}")
+        raise
+
+
+def mux_video_audio_with_ffmpeg(video_path: str, audio_path: str, output_path: str) -> None:
+    """
+    Mezcla video MP4 + audio WAV en un solo MP4 usando ffmpeg.
+    Requiere ffmpeg instalado en el sistema.
+    """
+    import subprocess
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", video_path,
+        "-i", audio_path,
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-shortest",
+        output_path,
+    ]
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logger.info(f"[LTX] Video+audio mezclado exitosamente: {output_path}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"[LTX] ffmpeg falló: {e.stderr.decode('utf-8', errors='ignore')}")
+        raise RuntimeError(f"ffmpeg no pudo mezclar video+audio: {e}")
+
+
 class LTXFastVideoPipeline:
     pipeline_kind = "fast"
 

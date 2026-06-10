@@ -1,6 +1,6 @@
-# Flux Collection Advanced (v0.3.0)
+# Flux Collection Advanced (v0.4.0)
 
-A powerful collection of ComfyUI nodes for **Flux.1** and **Flux.2** architectures, with a fully hexagonal architecture, GGUF support, Wan 2.2 video storytelling, and global seed control.
+A powerful collection of ComfyUI nodes for **Flux.1** and **Flux.2** architectures, with a fully hexagonal architecture, GGUF support, Wan 2.2 video storytelling, LTX Video 2.3 generation, and global seed control.
 
 ---
 
@@ -26,6 +26,19 @@ A powerful collection of ComfyUI nodes for **Flux.1** and **Flux.2** architectur
 | **[HEX] Prompt Sequencer** | Multi-line prompt sequencer with auto-increment across queue runs. |
 | **[HEX] Wan Video Saver** | Saves video with configurable FPS, custom path, and timestamped filenames. |
 
+## Nodes — LTX Video 2.3
+
+| Node | Description |
+|------|-------------|
+| **[LTX] Distilled GGUF Loader** | Loads LTX 22B GGUF + Gemma folder + VAEs + Upscaler + Connectors. Optimized with `torch_compile` and transformer CPU caching. |
+| **[LTX] Fast Loader** | Loads LTX SafeTensors checkpoint + Gemma folder + Upscaler. For 24GB+ VRAM. |
+| **[LTX] Video Sampler** | Text-to-Video and Image-to-Video generation with native audio support. 2-pass sampling (structural + refinement). |
+| **[LTX] Video Saver** | Saves MP4 with audio muxing via ffmpeg. Interactive video preview via `ltx_video_preview.js`. |
+
+> **Performance note:** As of v0.4.0-sprint7, the `[LTX]` legacy pipeline includes backend optimizations (`torch_compile`, aggressive tiling, streaming prefetch=4, TF32 matmul) that improve generation speed by **50-60%** on RTX 5080 16GB compared to earlier versions.
+>
+> See [`ltx_models.md`](ltx_models.md) for complete model requirements, connection diagrams, and hardware-specific configurations.
+
 ## Nodes — Legacy (pending_refactor)
 
 ControlNet Loader/Apply/Preview, Image Preview, Image Upscaler, LoRA Detailer, VRAM Loader Beta.
@@ -46,6 +59,12 @@ ControlNet Loader/Apply/Preview, Image Preview, Image Upscaler, LoRA Detailer, V
 ---
 
 ## Changelog
+
+### v0.4.0-sprint7 — 2026-06-10
+- **[LTX] Performance Optimizations**: Backend `ltx_backend.py` upgraded with `torch_compile`, `streaming_prefetch_count=4`, aggressive tiling, and TF32 matmul precision. **~50-60% speed improvement** on RTX 5080 16GB.
+- **[LTX] Audio Fix**: Resolved audio routing UX issue. Audio now correctly muxes into MP4 when connected.
+- **[REFACTOR]** Consolidated all LTX pipelines into `[LTX]` legacy nodes. Removed HEX and Native variants to focus development effort.
+- **[LTX] Tests**: 15 tests covering pipeline adapter, service, normalization, and legacy nodes.
 
 ### v0.3.0 — 2026-04-04
 - **[HEX] Global Seed**: New node — global seed control with auto-broadcast to all Flux Sampler nodes. Supports `randomize`, `fixed`, `increment`, `decrement` modes. ON/OFF auto-sync toggle.

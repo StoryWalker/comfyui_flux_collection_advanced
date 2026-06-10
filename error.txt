@@ -1,0 +1,28 @@
+got prompt
+!!! Exception during processing !!! [LTX Loader Error] Faltan los siguientes recursos:
+  • gemma_directory: C:\ComfyUI\models\text_encoders\gemma-3-12b-it-qat-q4_0-unquantized
+
+Consulta ltx_models.md para la lista completa de modelos requeridos.
+Descarga los modelos LTX 2.3 y colócalos en las carpetas de ComfyUI indicadas.
+Traceback (most recent call last):
+  File "C:\ComfyUI\execution.py", line 525, in execute
+    output_data, output_ui, has_subgraph, has_pending_tasks = await get_output_data(prompt_id, unique_id, obj, input_data_all, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)
+                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\ComfyUI\execution.py", line 334, in get_output_data
+    return_values = await _async_map_node_over_list(prompt_id, unique_id, obj, input_data_all, obj.FUNCTION, allow_interrupt=True, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\ComfyUI\execution.py", line 308, in _async_map_node_over_list
+    await process_inputs(input_dict, i)
+  File "C:\ComfyUI\execution.py", line 296, in process_inputs
+    result = f(**inputs)
+             ^^^^^^^^^^^
+  File "C:\ComfyUI\custom_nodes\comfyui_flux_collection_advanced\ltx_nodes.py", line 190, in load_pipeline
+    raise FileNotFoundError("\n".join(msg_lines))
+FileNotFoundError: [LTX Loader Error] Faltan los siguientes recursos:
+  • gemma_directory: C:\ComfyUI\models\text_encoders\gemma-3-12b-it-qat-q4_0-unquantized
+
+Consulta ltx_models.md para la lista completa de modelos requeridos.
+Descarga los modelos LTX 2.3 y colócalos en las carpetas de ComfyUI indicadas.
+
+Prompt executed in 0.03 seconds
+FETCH ComfyRegistry Data: 70/153
