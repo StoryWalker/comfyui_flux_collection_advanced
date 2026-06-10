@@ -30,6 +30,7 @@ team_pro/
 session_context/
 .claude/
 references/
+logs/
 old_versions/
 tests/
 *.log

@@ -1,9 +1,8 @@
+# Task-Source: T#27
+# -*- coding: utf-8 -*-
 """
 Flux VRAM Extreme Loader (BETA)
-Version: 0.2.2-beta
-Date: 2026-02-19
-Author: TEAM_PRO (via Gemini CLI)
-Description: Ultra-robust parameter validation. Prevents INT conversion crashes from old workflows.
+Migrado a arquitectura hexagonal.
 """
 import logging
 import torch
@@ -13,24 +12,20 @@ import comfy.model_management
 import folder_paths
 import nodes
 from typing import Any, Dict, List, Tuple, Optional, Type
+from .infrastructure.error_adapter import hex_error_handler
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
-    """
-    BETA: Extreme VRAM Optimization Loader specialized for Flux.
-    v0.2.2: Extreme robustness against ComfyUI positional shifts.
-    """
 
-    FUNCTION = "load_models_vram"
-    CATEGORY = "flux_collection_advanced/beta"
-    DESCRIPTION = "BETA: Flux Loader with Architecture Fingerprinting and T5 optimizations."
+class FluxVRAMLoaderBetaHex(nodes.ComfyNodeABC):
+    """[HEX] Flux VRAM Extreme Loader (BETA) — cargador especializado con optimizaciones extremas de VRAM y huella de arquitectura."""
+
+    FUNCTION = "execute"
+    CATEGORY = "flux_collection_advanced/hex"
     RETURN_TYPES = ("MODEL", "CLIP", "VAE",)
+    RETURN_NAMES = ("model", "clip", "vae",)
     OUTPUT_NODE = False
 
-    # --- Static Data for TAESD ---
     _TAESD_VARIANTS_PREFIXES = {
         "taesd": ["taesd_encoder.", "taesd_decoder."],
         "taesdxl": ["taesdxl_encoder.", "taesdxl_decoder."],
@@ -59,6 +54,7 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
 
         return {
             "required": {
+                "section_loader": ("STRING", {"default": "VRAM LOADER (BETA)"}),
                 "unet_name": (unet_list, {"tooltip": "Select Flux UNET (.gguf or .safetensors)"}),
                 "dequant_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default"}),
                 "clip_name1": (clip_list, {"tooltip": "Primary Encoder (CLIP-L)"}),
@@ -68,7 +64,6 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
                 "auto_optimize": ("BOOLEAN", {"default": True}),
             },
             "optional": {
-                # We move problematic widgets to optional to bypass strict INT validation if None/String leaked
                 "t5_layers": ("INT", {"default": 16, "min": 1, "max": 24, "step": 1}),
                 "patch_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default"}),
                 "patch_on_device": ("BOOLEAN", {"default": False}),
@@ -89,28 +84,34 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
             elif double == 19: info["arch"] = "flux.1_standard"
             return info
         except Exception as e:
-            # Task-Source: T#3
-            logger.warning(f"[VRAM] Error al detectar arquitectura GGUF en '{path}': {e}")
+            logger.warning(f"[HEX] Error al detectar arquitectura GGUF en '{path}': {e}")
             return info
 
-    def load_models_vram(self, unet_name, dequant_dtype, clip_name1, clip_name2, t5_optimization, vae_name, auto_optimize, t5_layers=16, patch_dtype="default", patch_on_device=False):
-        # Robust Parameter Cleaning
+    @hex_error_handler
+    def execute(self, **kwargs) -> Tuple[Any, Any, Any]:
+        unet_name = kwargs["unet_name"]
+        dequant_dtype = kwargs["dequant_dtype"]
+        clip_name1 = kwargs["clip_name1"]
+        clip_name2 = kwargs["clip_name2"]
+        t5_optimization = kwargs["t5_optimization"]
+        vae_name = kwargs["vae_name"]
+        auto_optimize = kwargs["auto_optimize"]
+        t5_layers = kwargs.get("t5_layers", 16)
+        patch_dtype = kwargs.get("patch_dtype", "default")
+        patch_on_device = kwargs.get("patch_on_device", False)
+
         try:
-            # Si t5_layers llega como string (shift), intentar convertir o usar default
             if isinstance(t5_layers, str): t5_layers = 16
             t5_layers = int(t5_layers) if t5_layers is not None else 16
         except (ValueError, TypeError) as e:
-            logger.warning(f"[VRAM] Valor invalido para t5_layers '{t5_layers}', usando default 16: {e}")
+            logger.warning(f"[HEX] Valor inválido para t5_layers '{t5_layers}', usando default 16: {e}")
             t5_layers = 16
 
-        # Safety for patch_dtype
         if patch_dtype not in ["default", "target", "float32", "float16", "bfloat16"]: patch_dtype = "default"
 
-        # 1. Resolve Path and Detect Arch
         unet_path = folder_paths.get_full_path("unet_gguf", unet_name) or folder_paths.get_full_path("diffusion_models", unet_name)
         arch_info = self._detect_architecture(unet_path) if auto_optimize else {}
 
-        # 2. Load UNET
         from nodes import NODE_CLASS_MAPPINGS
         if str(unet_name).lower().endswith(".gguf"):
             gguf_node = NODE_CLASS_MAPPINGS.get("UnetLoaderGGUFAdvanced")
@@ -122,9 +123,8 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
             sampling = model.model.model_sampling
             if not hasattr(sampling, "shift"): sampling.set_parameters(shift=1.15)
         except Exception as e:
-            logger.warning(f"[VRAM] No se pudo aplicar shift de sampling al modelo: {e}")
+            logger.warning(f"[HEX] No se pudo aplicar shift de sampling al modelo: {e}")
 
-        # 3. Load CLIP(s)
         use_single = (str(clip_name2) == "None" or not clip_name2)
         if use_single:
             if str(clip_name1).lower().endswith(".gguf"):
@@ -141,7 +141,6 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
                 p2 = folder_paths.get_full_path_or_raise("text_encoders", clip_name2)
                 clip = comfy.sd.load_clip(ckpt_paths=[p1, p2], clip_type=comfy.sd.CLIPType.FLUX)
 
-        # 4. Apply T5 Optimizations
         if not use_single and str(t5_optimization) == "Layer Truncation":
             try:
                 t5 = None
@@ -150,9 +149,8 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
                 if t5 and hasattr(t5, "encoder") and t5_layers < 24:
                     t5.encoder.block = t5.encoder.block[:t5_layers]
             except Exception as e:
-                logger.warning(f"[VRAM] No se pudo truncar T5 a {t5_layers} capas: {e}")
+                logger.warning(f"[HEX] No se pudo truncar T5 a {t5_layers} capas: {e}")
 
-        # 5. Load VAE
         vae = self._load_vae_robust(vae_name)
         return (model, clip, vae)
 
@@ -168,12 +166,12 @@ class FluxModelsLoader_VRAM_Beta(nodes.ComfyNodeABC):
                 enc = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae_approx", e_name))
                 for k, v in enc.items(): sd[f"taesd_encoder.{k}"] = v
                 dec = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae_approx", d_name))
-                for k, v in dec_sd.items(): sd[f"taesd_decoder.{k}"] = v
+                for k, v in dec.items(): sd[f"taesd_decoder.{k}"] = v
                 scale = self._TAESD_SCALING[name]
                 sd["vae_scale"], sd["vae_shift"] = torch.tensor(scale["scale"]), torch.tensor(scale["shift"])
                 return comfy.sd.VAE(sd=sd)
             else:
                 return comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", name)))
         except Exception as e:
-            logger.error(f"[VRAM] No se pudo cargar VAE '{name}': {e}", exc_info=True)
+            logger.error(f"[HEX] No se pudo cargar VAE '{name}': {e}", exc_info=True)
             return None

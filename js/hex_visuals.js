@@ -1,5 +1,6 @@
 // Task-Source: T#22 / T#23 / T#24
-import { app } from "../../../scripts/app.js";
+import { app } from "/scripts/app.js";
+import { api } from "/scripts/api.js";
 import { hexTheme } from "./hex_theme.js";
 
 export const HEX_NODES = [
@@ -17,6 +18,12 @@ export const HEX_NODES = [
 	"FluxControlNetLoaderHex",
 	"FluxControlNetApplyHex",
 	"FluxImagePreviewHex",
+	"FluxControlNetApplyPreviewHex",
+	"FluxImageUpscalerHex",
+	"FluxLoraDetailerHex",
+	"FluxVRAMLoaderBetaHex",
+	"WanIndexBridgeHex",
+	"WanVideoSaverDevHex",
 ];
 
 // Definición centralizada de settings — usada al registrar y al restaurar desde el nodo
@@ -126,3 +133,289 @@ app.registerExtension({
 		};
 	},
 });
+
+// --- TIMER DE EJECUCIÓN DEL PIPELINE PARA LA GUI ---
+(function() {
+	const style = document.createElement("style");
+	style.textContent = `
+		#hex-execution-timer {
+			font-family: 'Outfit', 'Inter', 'Segoe UI', sans-serif;
+			background: rgba(20, 20, 20, 0.85);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			border: 1px solid rgba(255, 144, 0, 0.4);
+			border-radius: 30px;
+			padding: 10px 20px;
+			color: #fff;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 144, 0, 0.2);
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+			opacity: 0;
+			transform: translate(-50%, -20px) scale(0.9);
+			position: fixed;
+			top: 20px;
+			left: 50%;
+			z-index: 10000;
+			pointer-events: none;
+			font-size: 14px;
+			font-weight: 500;
+			letter-spacing: 0.5px;
+		}
+		#hex-execution-timer.visible {
+			opacity: 1;
+			transform: translate(-50%, 0) scale(1);
+		}
+		#hex-execution-timer .timer-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+			background-color: #ff9000;
+			box-shadow: 0 0 8px #ff9000;
+			transition: all 0.3s ease;
+		}
+		#hex-execution-timer.running .timer-dot {
+			background-color: #00f0ff;
+			box-shadow: 0 0 10px #00f0ff;
+			animation: hex-pulse 1s infinite alternate;
+		}
+		#hex-execution-timer.success {
+			border-color: rgba(0, 255, 150, 0.5);
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 255, 150, 0.25);
+		}
+		#hex-execution-timer.success .timer-dot {
+			background-color: #00ff96;
+			box-shadow: 0 0 10px #00ff96;
+		}
+		#hex-execution-timer.error {
+			border-color: rgba(255, 70, 70, 0.5);
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 70, 70, 0.25);
+		}
+		#hex-execution-timer.error .timer-dot {
+			background-color: #ff4646;
+			box-shadow: 0 0 10px #ff4646;
+		}
+		#hex-execution-timer .timer-label {
+			color: rgba(255, 255, 255, 0.7);
+			font-size: 12px;
+			text-transform: uppercase;
+			font-weight: 600;
+		}
+		#hex-execution-timer .timer-value {
+			font-variant-numeric: tabular-nums;
+			font-weight: bold;
+		}
+
+		@keyframes hex-pulse {
+			from { transform: scale(0.8); opacity: 0.6; }
+			to { transform: scale(1.25); opacity: 1; }
+		}
+	`;
+	document.head.appendChild(style);
+
+	const badge = document.createElement("div");
+	badge.id = "hex-execution-timer";
+	badge.innerHTML = `
+		<div class="timer-dot"></div>
+		<span class="timer-label">Pipeline</span>
+		<span class="timer-value">0.0s</span>
+	`;
+	
+	if (document.body) {
+		document.body.appendChild(badge);
+	} else {
+		window.addEventListener("DOMContentLoaded", () => {
+			document.body.appendChild(badge);
+		});
+	}
+
+	let startTime = null;
+	let timerInterval = null;
+	let hideTimeout = null;
+	let executedNodes = [];
+	let pipelineActive = false;
+	let currentPromptId = null;
+	let eventLogTrace = [];
+
+	function logEvent(name, detail) {
+		const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+		const detailStr = detail ? JSON.stringify(detail) : "null";
+		const logLine = `[${timestamp}] Event: ${name} | Detail: ${detailStr}`;
+		eventLogTrace.push(logLine);
+		console.log(`[HEX Pipeline Tracer] ${logLine}`);
+	}
+
+	function resetPipelineTracking(promptId) {
+		executedNodes = [];
+		eventLogTrace = [];
+		startTime = performance.now();
+		pipelineActive = true;
+		currentPromptId = promptId;
+		logEvent("track_start", { promptId });
+	}
+
+	function updateUI(text, state) {
+		const valEl = badge.querySelector(".timer-value");
+		if (valEl) valEl.textContent = text;
+		
+		badge.className = ""; // clear all
+		badge.classList.add("visible");
+		badge.classList.add(state);
+	}
+
+	function startTimer(promptId) {
+		if (hideTimeout) clearTimeout(hideTimeout);
+		resetPipelineTracking(promptId);
+		updateUI("0.0s", "running");
+		
+		if (timerInterval) clearInterval(timerInterval);
+		timerInterval = setInterval(() => {
+			if (startTime) {
+				const elapsed = (performance.now() - startTime) / 1000;
+				updateUI(`${elapsed.toFixed(1)}s`, "running");
+			}
+		}, 100);
+	}
+
+	function stopTimer(success = true) {
+		if (timerInterval) {
+			clearInterval(timerInterval);
+			timerInterval = null;
+		}
+		if (startTime) {
+			const elapsed = (performance.now() - startTime) / 1000;
+			updateUI(`${elapsed.toFixed(2)}s`, success ? "success" : "error");
+			startTime = null;
+			
+			hideTimeout = setTimeout(() => {
+				badge.classList.remove("visible");
+			}, 8000);
+		}
+	}
+
+	function sendPipelineLog(success, endStatus = "SUCCESS") {
+		const endTime = performance.now();
+		const totalTime = startTime ? (endTime - startTime) / 1000 : 0;
+		
+		const dateStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+		let log = `[${dateStr}] === PIPELINE EXECUTION STARTED (Prompt ID: ${currentPromptId}) ===\n`;
+		
+		log += "--- DETAILED EVENT TRACE ---\n";
+		eventLogTrace.forEach(line => {
+			log += `  ${line}\n`;
+		});
+		log += "----------------------------\n";
+		
+		if (executedNodes.length > 0) {
+			log += "--- EXECUTED NODES ---\n";
+			executedNodes.forEach(n => {
+				log += `  - [${n.time}] Node: ${n.type} (ID: ${n.id})\n`;
+			});
+		} else {
+			log += "  - No nodes registered during execution.\n";
+		}
+		
+		log += `[${dateStr}] === PIPELINE EXECUTION FINISHED | Total Time: ${totalTime.toFixed(2)}s | Status: ${endStatus} ===\n`;
+		
+		api.fetchApi("/hex/log_pipeline", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify({ log })
+		}).catch(err => {
+			console.error("[HEX Performance Log] Failed to send pipeline log:", err);
+		});
+	}
+
+	// Registrar listeners en la instancia API del WebSocket de ComfyUI
+	api.addEventListener("execution_start", (event) => {
+		const detail = event.detail;
+		const promptId = detail ? detail.prompt_id : null;
+		logEvent("execution_start", detail);
+		startTimer(promptId);
+	});
+
+	api.addEventListener("executing", (event) => {
+		const detail = event.detail;
+		logEvent("executing", detail);
+		
+		const nodeId = detail ? detail.node : null;
+		const promptId = detail ? detail.prompt_id : null;
+		
+		if (promptId && currentPromptId && promptId !== currentPromptId) {
+			logEvent("executing_ignored_wrong_prompt", { promptId, currentPromptId });
+			return;
+		}
+
+		if (nodeId) {
+			if (!pipelineActive) {
+				resetPipelineTracking(promptId || currentPromptId);
+			}
+			const node = app.graph.getNodeById(nodeId);
+			const nodeType = node ? node.type : `Node ${nodeId}`;
+			const timestamp = new Date().toLocaleTimeString();
+			executedNodes.push({ type: nodeType, id: nodeId, time: timestamp });
+		}
+	});
+
+	api.addEventListener("executed", (event) => {
+		const detail = event.detail;
+		logEvent("executed", detail);
+	});
+
+	api.addEventListener("execution_success", (event) => {
+		const detail = event.detail;
+		const promptId = detail ? detail.prompt_id : null;
+		logEvent("execution_success", detail);
+		
+		if (promptId && currentPromptId && promptId !== currentPromptId) {
+			logEvent("execution_success_ignored_wrong_prompt", { promptId, currentPromptId });
+			return;
+		}
+
+		if (pipelineActive) {
+			sendPipelineLog(true, "SUCCESS");
+			stopTimer(true);
+			pipelineActive = false;
+			currentPromptId = null;
+		}
+	});
+
+	api.addEventListener("execution_error", (event) => {
+		const detail = event.detail;
+		const promptId = detail ? detail.prompt_id : null;
+		logEvent("execution_error", detail);
+		
+		if (promptId && currentPromptId && promptId !== currentPromptId) {
+			logEvent("execution_error_ignored_wrong_prompt", { promptId, currentPromptId });
+			return;
+		}
+
+		if (pipelineActive) {
+			sendPipelineLog(false, "ERROR");
+			stopTimer(false);
+			pipelineActive = false;
+			currentPromptId = null;
+		}
+	});
+
+	api.addEventListener("execution_interrupted", (event) => {
+		const detail = event.detail;
+		const promptId = detail ? detail.prompt_id : null;
+		logEvent("execution_interrupted", detail);
+		
+		if (promptId && currentPromptId && promptId !== currentPromptId) {
+			logEvent("execution_interrupted_ignored_wrong_prompt", { promptId, currentPromptId });
+			return;
+		}
+
+		if (pipelineActive) {
+			sendPipelineLog(false, "INTERRUPTED");
+			stopTimer(false);
+			pipelineActive = false;
+			currentPromptId = null;
+		}
+	});
+})();

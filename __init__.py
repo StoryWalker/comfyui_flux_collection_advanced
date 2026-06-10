@@ -49,6 +49,10 @@ load_node("hex_global_seed", "GlobalSeedHex", "GlobalSeedHex", "[HEX] Global See
 load_node("hex_image_controlnet_loader", "FluxControlNetLoaderHex", "FluxControlNetLoaderHex", "[HEX] Flux ControlNet Loader")
 load_node("hex_image_controlnet_apply", "FluxControlNetApplyHex", "FluxControlNetApplyHex", "[HEX] Flux ControlNet Apply")
 load_node("hex_image_preview", "FluxImagePreviewHex", "FluxImagePreviewHex", "[HEX] Flux Image Preview")
+load_node("hex_image_controlnet_apply_preview", "FluxControlNetApplyPreviewHex", "FluxControlNetApplyPreviewHex", "[HEX] Flux ControlNet Apply Preview")
+load_node("hex_image_upscaler", "FluxImageUpscalerHex", "FluxImageUpscalerHex", "[HEX] Flux Image Upscaler")
+load_node("hex_image_lora_detailer", "FluxLoraDetailerHex", "FluxLoraDetailerHex", "[HEX] Flux Lora Detailer")
+load_node("hex_image_vram_loader_beta", "FluxVRAMLoaderBetaHex", "FluxVRAMLoaderBetaHex", "[HEX] Flux VRAM Loader Beta")
 
 # Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
 if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
@@ -58,25 +62,24 @@ if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
     load_node("test_hex_loaders", "Test_Hex_ClipVisionLoader", "TestHexClipVisionLoader", "[TEST] Hex CLIP Vision Loader")
     load_node("test_hex_loaders", "Test_Hex_LoraLoader", "TestHexLoraLoader", "[TEST] Hex LoRA Loader")
     load_node("test_hex_loaders", "Test_Hex_ModelSampling", "TestHexModelSampling", "[TEST] Hex Model Sampling")
-    load_node("pending_refactor.wan_index_bridge_dev", "WanIndexBridge_Dev", "WanIndexBridgeDev", "[DEV] Wan Index Bridge")
-    load_node("pending_refactor.wan_video_saver_dev", "WanVideoSaver_Dev", "WanVideoSaverDev", "[DEV] Wan Video Saver")
+    load_node("hex_wan_index_bridge", "WanIndexBridgeHex", "WanIndexBridgeHex", "[HEX][DEV] Wan Index Bridge")
+    load_node("hex_wan_video_saver_dev", "WanVideoSaverDevHex", "WanVideoSaverDevHex", "[HEX][DEV] Wan Video Saver")
     print(f"{YELLOW}[DEV] Modo desarrollo activo — nodos TEST y DEV registrados.{RESET}")
 else:
     print(f"[INFO] Nodos DEV/TEST omitidos. Activa con COMFYUI_DEV_NODES=1 para cargarlos.")
 
-# Registro de nodos legacy Flux [pending_refactor]
+# Registro de nodos legacy Flux [pending_refactor] (Completamente migrados a HEX)
 # Flux Models Loader eliminado — reemplazado por hex_image_models_loader.py (HEX)
 # Flux GGUF Loader migrado a hex_image_models_loader.py (HEX)
 # Flux Text Prompt migrado a hex_image_text_prompt.py (HEX)
 # Flux Sampler Parameters migrado a hex_image_sampler_parameters.py (HEX)
-# Migrados a arquitectura hexagonal: T#15, T#16, T#17
-# load_node("pending_refactor.flux_controlnet_loader", ...)   → hex_image_controlnet_loader.py
-# load_node("pending_refactor.flux_controlnet_apply", ...)    → hex_image_controlnet_apply.py
-# load_node("pending_refactor.flux_image_preview", ...)       → hex_image_preview.py
-load_node("pending_refactor.flux_controlnet_apply_preview", "FluxControlNetApplyPreview", "FluxControlNetApplyPreview", "Flux ControlNet Apply Preview")
+# Flux ControlNet Loader migrado a hex_image_controlnet_loader.py (HEX)
+# Flux ControlNet Apply migrado a hex_image_controlnet_apply.py (HEX)
+# Flux Image Preview migrado a hex_image_preview.py (HEX)
+# Flux ControlNet Apply Preview migrado a hex_image_controlnet_apply_preview.py (HEX)
 # Flux Image Comparison migrado a hex_image_comparison.py (HEX)
-load_node("pending_refactor.flux_image_upscaler", "FluxImageUpscaler", "FluxImageUpscaler", "Flux Image Upscaler")
-load_node("pending_refactor.flux_lora_detailer", "FluxLoraDetailer", "FluxLoraDetailer", "Flux Lora Detailer")
-load_node("pending_refactor.flux_vram_loader_beta", "FluxModelsLoader_VRAM_Beta", "FluxVRAMLoaderBeta", "Flux VRAM Loader Beta")
+# Flux Image Upscaler migrado a hex_image_upscaler.py (HEX)
+# Flux Lora Detailer migrado a hex_image_lora_detailer.py (HEX)
+# Flux VRAM Loader Beta migrado a hex_image_vram_loader_beta.py (HEX)
 
 print(f"{BOLD}Total nodos registrados: {len(NODE_CLASS_MAPPINGS)}{RESET}\n")
