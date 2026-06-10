@@ -71,7 +71,6 @@ class NVFP4ImageLoader:
 
         service = NVFP4ImageGenerationService(
             model_adapter=NVFP4ModelAdapter(),
-            error_adapter=ErrorLoggingAdapter(),
         )
 
         stack = service.load_stack(config)
