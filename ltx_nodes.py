@@ -4,6 +4,7 @@ import sys
 import torch
 import tempfile
 import numpy as np
+import datetime
 from PIL import Image
 
 # CRITICAL IMPORT ORDER: Import fuse_loras first to break circular imports in ltx_core
@@ -282,3 +283,54 @@ class LTXVideoSampler:
                     os.unlink(temp_file)
                 except Exception:
                     pass
+
+
+class LTXVideoSaver:
+    """
+    [LTX] Video Saver:
+    Toma los fotogramas del video en formato IMAGE de ComfyUI, los codifica en un archivo MP4
+    usando imageio y lo guarda en la carpeta de salida (output) de ComfyUI, permitiendo
+    ver la previsualización interactiva del video en la interfaz gráfica.
+    """
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "fps": ("INT", {"default": 24, "min": 1, "max": 120}),
+                "filename_prefix": ("STRING", {"default": "LTX_Video"}),
+            }
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "save_video"
+    OUTPUT_NODE = True
+    CATEGORY = "flux_collection_advanced/ltx"
+
+    def save_video(self, images, fps, filename_prefix):
+        import imageio
+        
+        base_output = folder_paths.get_output_directory()
+        
+        # Agrupamos los videos por fecha actual
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        subfolder = os.path.join(today, "ltx_videos")
+        target_dir = os.path.join(base_output, subfolder)
+        os.makedirs(target_dir, exist_ok=True)
+        
+        timestamp = datetime.datetime.now().strftime("%H%M%S")
+        filename = f"{filename_prefix}_{timestamp}.mp4"
+        full_path = os.path.join(target_dir, filename)
+        
+        # Convertimos el tensor float32 [0.0, 1.0] de ComfyUI a arrays uint8 [0, 255]
+        video_data = []
+        for frame in images:
+            f_np = (frame.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
+            video_data.append(f_np)
+            
+        # Guardamos usando imageio
+        imageio.mimwrite(full_path, video_data, fps=fps, quality=8, macro_block_size=16)
+        
+        # ComfyUI usa el diccionario "ui" con la clave "gifs" para mostrar el video interactivo en la UI
+        subfolder_formatted = subfolder.replace("\\", "/")
+        return {"ui": {"gifs": [{"filename": filename, "subfolder": subfolder_formatted, "type": "output"}]}}

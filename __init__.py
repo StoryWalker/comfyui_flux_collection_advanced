@@ -58,6 +58,7 @@ load_node("hex_image_vram_loader_beta", "FluxVRAMLoaderBetaHex", "FluxVRAMLoader
 load_node("ltx_nodes", "LTXDistilledGGUFPipelineLoader", "LTXDistilledGGUFPipelineLoader", "[LTX] Distilled GGUF Loader")
 load_node("ltx_nodes", "LTXFastPipelineLoader", "LTXFastPipelineLoader", "[LTX] Fast Loader")
 load_node("ltx_nodes", "LTXVideoSampler", "LTXVideoSampler", "[LTX] Video Sampler")
+load_node("ltx_nodes", "LTXVideoSaver", "LTXVideoSaver", "[LTX] Video Saver")
 
 # Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
 if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
