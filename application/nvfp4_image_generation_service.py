@@ -50,7 +50,10 @@ class NVFP4ImageGenerationService:
 
     def encode_prompt(self, config: TextEncodingConfig, clip: Any) -> Any:
         """Encode text prompt to conditioning."""
-        from application.text_encoding_service import TextEncodingService
+        try:
+            from application.text_encoding_service import TextEncodingService
+        except ImportError:
+            from .text_encoding_service import TextEncodingService
         service = TextEncodingService(clip_adapter=self.clip_adapter)
         return service.encode(config, clip)
 
@@ -63,6 +66,9 @@ class NVFP4ImageGenerationService:
         latent_opt: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Any, Dict[str, Any]]:
         """Run sampling and VAE decode."""
-        from application.image_sampler_service import FluxSamplerService
+        try:
+            from application.image_sampler_service import FluxSamplerService
+        except ImportError:
+            from .image_sampler_service import FluxSamplerService
         service = FluxSamplerService(adapter=self.sampler_adapter)
         return service.generate(sampler_config, model, positive, vae, latent_opt)
