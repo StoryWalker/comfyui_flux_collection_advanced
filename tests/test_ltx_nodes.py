@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+"""
+Tests for [LTX] Legacy Nodes (Thin Hexagonal Wrappers).
+
+Estos nodos mantienen la interfaz legacy pero delegan internamente a la
+arquitectura hexagonal (LTXPipelineAdapter, LTXVideoGenerationService, ExportVideoService).
+Los mocks deben apuntar a esos componentes, no al backend directo.
+"""
 import os
 import sys
 import unittest
@@ -36,11 +43,13 @@ from ltx_nodes import LTXDistilledGGUFPipelineLoader, LTXFastPipelineLoader, LTX
 class TestLTXNodes(unittest.TestCase):
 
     @patch("ltx_nodes.resolve_ltx_path")
-    @patch("ltx_nodes.LTXDistilledGGUFVideoPipeline")
+    @patch("ltx_nodes.LTXPipelineAdapter")
     @patch("os.path.exists", return_value=True)
-    def test_gguf_loader_initializes_pipeline(self, mock_exists, mock_gguf_pipeline, mock_resolve):
-        mock_instance = MagicMock()
-        mock_gguf_pipeline.create.return_value = mock_instance
+    def test_gguf_loader_initializes_pipeline(self, mock_exists, mock_adapter_cls, mock_resolve):
+        mock_adapter = MagicMock()
+        mock_adapter_cls.return_value = mock_adapter
+        mock_pipeline = MagicMock()
+        mock_adapter.load_pipeline.return_value = mock_pipeline
         mock_resolve.side_effect = lambda filename, folder_type=None: f"resolved/{filename}"
 
         loader = LTXDistilledGGUFPipelineLoader()
@@ -55,23 +64,26 @@ class TestLTXNodes(unittest.TestCase):
         )
 
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0], mock_instance)
-        mock_gguf_pipeline.create.assert_called_once_with(
-            checkpoint_path="resolved/dummy_gguf.gguf",
-            gemma_root="resolved/dummy_gemma",
-            upsampler_path="resolved/dummy_upscaler.safetensors",
-            device=torch.device("cpu"),
-            vae_video_path="resolved/dummy_vae_v.safetensors",
-            audio_vae_path="resolved/dummy_vae_a.safetensors",
-            connector_path="resolved/dummy_connector.safetensors"
-        )
+        self.assertEqual(result[0], mock_pipeline)
+        mock_adapter.load_pipeline.assert_called_once()
+        config = mock_adapter.load_pipeline.call_args[0][0]
+        self.assertEqual(config.checkpoint_path, "resolved/dummy_gguf.gguf")
+        self.assertEqual(config.gemma_root, "resolved/dummy_gemma")
+        self.assertEqual(config.upsampler_path, "resolved/dummy_upscaler.safetensors")
+        self.assertEqual(config.vae_video_path, "resolved/dummy_vae_v.safetensors")
+        self.assertEqual(config.audio_vae_path, "resolved/dummy_vae_a.safetensors")
+        self.assertEqual(config.connector_path, "resolved/dummy_connector.safetensors")
+        self.assertEqual(config.pipeline_type, "distilled_gguf")
+        self.assertEqual(config.device, "cpu")
 
     @patch("ltx_nodes.resolve_ltx_path")
-    @patch("ltx_nodes.LTXFastVideoPipeline")
+    @patch("ltx_nodes.LTXPipelineAdapter")
     @patch("os.path.exists", return_value=True)
-    def test_fast_loader_initializes_pipeline(self, mock_exists, mock_fast_pipeline, mock_resolve):
-        mock_instance = MagicMock()
-        mock_fast_pipeline.create.return_value = mock_instance
+    def test_fast_loader_initializes_pipeline(self, mock_exists, mock_adapter_cls, mock_resolve):
+        mock_adapter = MagicMock()
+        mock_adapter_cls.return_value = mock_adapter
+        mock_pipeline = MagicMock()
+        mock_adapter.load_pipeline.return_value = mock_pipeline
         mock_resolve.side_effect = lambda filename, folder_type=None: f"resolved/{filename}"
 
         loader = LTXFastPipelineLoader()
@@ -83,24 +95,26 @@ class TestLTXNodes(unittest.TestCase):
         )
 
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0], mock_instance)
-        mock_fast_pipeline.create.assert_called_once_with(
-            checkpoint_path="resolved/dummy_fast.safetensors",
-            gemma_root="resolved/dummy_gemma",
-            upsampler_path="resolved/dummy_upscaler.safetensors",
-            device=torch.device("cpu")
-        )
+        self.assertEqual(result[0], mock_pipeline)
+        mock_adapter.load_pipeline.assert_called_once()
+        config = mock_adapter.load_pipeline.call_args[0][0]
+        self.assertEqual(config.checkpoint_path, "resolved/dummy_fast.safetensors")
+        self.assertEqual(config.gemma_root, "resolved/dummy_gemma")
+        self.assertEqual(config.upsampler_path, "resolved/dummy_upscaler.safetensors")
+        self.assertEqual(config.pipeline_type, "fast")
+        self.assertEqual(config.device, "cpu")
 
-    @patch("ltx_nodes.default_tiling_config")
-    def test_sampler_without_image_converts_output_range(self, mock_tiling):
-        mock_pipeline = MagicMock()
-        # Mocking VAE output video: a 4-frame video of shape [4, 64, 64, 3] with values in [0, 255]
-        fake_video = torch.randint(0, 256, (4, 64, 64, 3), dtype=torch.uint8)
-        mock_pipeline._run_inference.return_value = (fake_video, None)
+    @patch("ltx_nodes.LTXVideoGenerationService")
+    @patch("ltx_nodes.LTXPipelineAdapter")
+    def test_sampler_without_image_converts_output_range(self, mock_adapter_cls, mock_service_cls):
+        mock_service = MagicMock()
+        mock_service_cls.return_value = mock_service
+        fake_video = torch.rand(4, 64, 64, 3, dtype=torch.float32)
+        mock_service.generate.return_value = (fake_video, None)
 
         sampler = LTXVideoSampler()
         result = sampler.sample(
-            ltx_pipeline=mock_pipeline,
+            ltx_pipeline=MagicMock(),
             prompt="a cat walking",
             width=256,
             height=256,
@@ -113,29 +127,38 @@ class TestLTXNodes(unittest.TestCase):
 
         self.assertEqual(len(result), 2)
         output_tensor, audio_data = result
-        # Verify shape remains [F, H, W, C]
         self.assertEqual(output_tensor.shape, torch.Size([4, 64, 64, 3]))
-        # Verify it has been scaled down to [0.0, 1.0] float32
         self.assertEqual(output_tensor.dtype, torch.float32)
         self.assertTrue(output_tensor.max() <= 1.0)
         self.assertTrue(output_tensor.min() >= 0.0)
         self.assertIsNone(audio_data)
 
-    @patch("ltx_nodes.default_tiling_config")
-    def test_sampler_with_image_creates_temp_file(self, mock_tiling):
-        mock_pipeline = MagicMock()
-        fake_video = torch.randint(0, 256, (2, 64, 64, 3), dtype=torch.uint8)
-        mock_pipeline._run_inference.return_value = (fake_video, None)
+        # Verify service was called with correct settings
+        mock_service.generate.assert_called_once()
+        pipeline_arg, settings_arg = mock_service.generate.call_args[0]
+        self.assertEqual(settings_arg.prompt, "a cat walking")
+        self.assertEqual(settings_arg.width, 256)
+        self.assertEqual(settings_arg.height, 256)
+        self.assertEqual(settings_arg.num_frames, 9)
+        self.assertEqual(settings_arg.frame_rate, 8.0)
+        self.assertEqual(settings_arg.seed, 42)
+        self.assertEqual(settings_arg.strength, 1.0)
+        self.assertEqual(settings_arg.image_path, "")
 
-        # Mock image: a single frame of shape [1, 256, 256, 3] in float32 [0.0, 1.0]
+    @patch("ltx_nodes.LTXVideoGenerationService")
+    @patch("ltx_nodes.LTXPipelineAdapter")
+    def test_sampler_with_image_creates_temp_file(self, mock_adapter_cls, mock_service_cls):
+        mock_service = MagicMock()
+        mock_service_cls.return_value = mock_service
+        fake_video = torch.rand(2, 64, 64, 3, dtype=torch.float32)
+        mock_service.generate.return_value = (fake_video, None)
+
         fake_image = torch.rand(1, 256, 256, 3, dtype=torch.float32)
 
         sampler = LTXVideoSampler()
-        
-        # We check that a temporary file path was created and deleted
         with patch("os.unlink") as mock_unlink:
             result = sampler.sample(
-                ltx_pipeline=mock_pipeline,
+                ltx_pipeline=MagicMock(),
                 prompt="a bird flying",
                 width=256,
                 height=256,
@@ -145,23 +168,26 @@ class TestLTXNodes(unittest.TestCase):
                 image=fake_image,
                 strength=0.8
             )
-            
+
             # Verify temporary file unlink was called for the conditional image path
             mock_unlink.assert_any_call(ANY)
-            
-            # Verify images list was supplied with strength
-            called_args = mock_pipeline._run_inference.call_args[1]["images"]
-            self.assertEqual(len(called_args), 1)
-            self.assertEqual(called_args[0]["strength"], 0.8)
+
+            # Verify service was called with image conditioning
+            mock_service.generate.assert_called_once()
+            _pipeline_arg, settings_arg = mock_service.generate.call_args[0]
+            self.assertTrue(settings_arg.use_image_conditioning)
+            self.assertEqual(settings_arg.strength, 0.8)
 
     @patch("folder_paths.get_output_directory")
-    @patch("imageio.mimwrite")
-    def test_saver_saves_video_and_returns_ui(self, mock_mimwrite, mock_get_output):
+    @patch("ltx_nodes.ExportVideoService")
+    def test_saver_saves_video_and_returns_ui(self, mock_service_cls, mock_get_output):
         mock_get_output.return_value = "dummy_output_dir"
-        
-        # Simula entrada IMAGE de ComfyUI (2 frames, 64x64, RGB)
+        mock_service = MagicMock()
+        mock_service_cls.return_value = mock_service
+        mock_service.export_video.return_value = os.path.join("dummy_output_dir", "2024-01-01", "videos", "test_ltx_0000_120000.mp4")
+
         fake_images = torch.rand(2, 64, 64, 3, dtype=torch.float32)
-        
+
         from ltx_nodes import LTXVideoSaver
         saver = LTXVideoSaver()
         result = saver.save_video(
@@ -169,14 +195,12 @@ class TestLTXNodes(unittest.TestCase):
             fps=24,
             filename_prefix="test_ltx"
         )
-        
-        # Comprobar llamada mimwrite
-        mock_mimwrite.assert_called_once()
-        called_args = mock_mimwrite.call_args[0]
-        self.assertEqual(len(called_args[1]), 2) # 2 frames
-        self.assertEqual(called_args[1][0].shape, (64, 64, 3))
-        
-        # Comprobar retorno de metadatos UI
+
+        mock_service.export_video.assert_called_once()
+        manifest, frames = mock_service.export_video.call_args[0]
+        self.assertEqual(manifest.filename_prefix, "test_ltx")
+        self.assertEqual(manifest.fps, 24)
+
         self.assertIn("ui", result)
         self.assertIn("gifs", result["ui"])
         self.assertEqual(len(result["ui"]["gifs"]), 1)

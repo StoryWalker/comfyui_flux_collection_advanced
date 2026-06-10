@@ -1,10 +1,19 @@
 # -*- coding: utf-8 -*-
+"""
+[LTX] Legacy Nodes — Thin Hexagonal Wrappers.
+
+Estos nodos mantienen la interfaz legacy estable (nombres, INPUT_TYPES, RETURN_TYPES)
+para no romper workflows existentes, pero internamente delegan 100% a la arquitectura
+hexagonal (Domain → Application → Infrastructure).
+
+Nodos HEX puros: hex_ltx_loader.py, hex_ltx_sampler.py, hex_ltx_video_saver.py
+Nodos Legacy wrappers: este archivo.
+"""
 import os
 import sys
 import torch
 import tempfile
 import numpy as np
-import datetime
 from PIL import Image
 
 # CRITICAL IMPORT ORDER: Import fuse_loras first to break circular imports in ltx_core
@@ -31,25 +40,23 @@ for _cat in ("diffusion_models", "checkpoints", "unet"):
     except Exception:
         pass
 
-# Intento de importación relativa (ComfyUI) o absoluta (tests)
+# ---------------------------------------------------------------------------
+# Hexagonal Imports (Domain → Application → Infrastructure)
+# ---------------------------------------------------------------------------
 try:
-    from .ltx_backend import (
-        LTXDistilledGGUFVideoPipeline,
-        LTXFastVideoPipeline,
-        default_tiling_config,
-        extract_video_audio,
-        save_audio_wav,
-        mux_video_audio_with_ffmpeg,
-    )
+    from domain.models import LTXPipelineConfig, LTXGenerationSettings, VideoExportManifest
+    from application.ltx_video_generation_service import LTXVideoGenerationService
+    from application.export_service import ExportVideoService
+    from infrastructure.ltx_pipeline_adapter import LTXPipelineAdapter
+    from infrastructure.error_adapter import hex_error_handler
+    from ltx_backend import save_audio_wav, mux_video_audio_with_ffmpeg
 except ImportError:
-    from ltx_backend import (
-        LTXDistilledGGUFVideoPipeline,
-        LTXFastVideoPipeline,
-        default_tiling_config,
-        extract_video_audio,
-        save_audio_wav,
-        mux_video_audio_with_ffmpeg,
-    )
+    from .domain.models import LTXPipelineConfig, LTXGenerationSettings, VideoExportManifest
+    from .application.ltx_video_generation_service import LTXVideoGenerationService
+    from .application.export_service import ExportVideoService
+    from .infrastructure.ltx_pipeline_adapter import LTXPipelineAdapter
+    from .infrastructure.error_adapter import hex_error_handler
+    from .ltx_backend import save_audio_wav, mux_video_audio_with_ffmpeg
 
 
 def scan_ltx_files(folder_types, extension_or_dir, default_file=None):
@@ -79,8 +86,6 @@ def scan_ltx_files(folder_types, extension_or_dir, default_file=None):
             pass
 
     # Solo insertar el default si no hay un archivo real cuyo basename coincida.
-    # Esto previene entradas duplicadas cuando el archivo está en una subcarpeta
-    # (ej: 'ltx\ltx-2.3-22b-distilled-Q4_K_M.gguf' vs 'ltx-2.3-22b-distilled-Q4_K_M.gguf')
     if default_file and default_file not in files:
         basenames = {os.path.basename(f) for f in files}
         if os.path.basename(default_file) not in basenames:
@@ -90,7 +95,6 @@ def scan_ltx_files(folder_types, extension_or_dir, default_file=None):
         files.append("None")
 
     return sorted(list(set(files)))
-
 
 
 def resolve_ltx_path(filename, folder_types=None):
@@ -134,13 +138,15 @@ def resolve_ltx_path(filename, folder_types=None):
     return os.path.join("models", folder_types[0] if folder_types else "", filename)
 
 
+# =============================================================================
+# [LTX] Distilled GGUF Pipeline Loader  (Legacy Wrapper → Hexagonal)
+# =============================================================================
 class LTXDistilledGGUFPipelineLoader:
     """
-    [LTX] Distilled GGUF Pipeline Loader:
-    Carga el transformador cuantizado (Q4_K_M GGUF) y sus modelos acompañantes (VAEs, Conector, Gemma)
-    nativamente desde las carpetas de ComfyUI en una instancia optimizada de DistilledPipeline.
+    [LTX] Distilled GGUF Pipeline Loader (Legacy):
+    Carga el transformador cuantizado (Q4_K_M GGUF) y sus modelos acompañantes.
+    Internamente delega a LTXPipelineAdapter (infraestructura hexagonal).
     """
-    # Categorías de folder_paths donde se buscan los recursos
     _GGUF_CATEGORIES = ["diffusion_models", "checkpoints", "unet"]
     _GEMMA_CATEGORIES = ["clip", "text_encoders"]
     _UPSCALER_CATEGORIES = ["latent_upscale_models", "upscale_models"]
@@ -173,6 +179,7 @@ class LTXDistilledGGUFPipelineLoader:
     FUNCTION = "load_pipeline"
     CATEGORY = "flux_collection_advanced/ltx"
 
+    @hex_error_handler
     def load_pipeline(self, gguf_checkpoint, gemma_directory, spatial_upscaler, vae_video, audio_vae, connector, device):
         gguf_checkpoint_path = resolve_ltx_path(gguf_checkpoint, self._GGUF_CATEGORIES)
         gemma_path_or_dir = resolve_ltx_path(gemma_directory, self._GEMMA_CATEGORIES)
@@ -181,7 +188,7 @@ class LTXDistilledGGUFPipelineLoader:
         audio_vae_path = resolve_ltx_path(audio_vae, self._VAE_CATEGORIES)
         connector_path = resolve_ltx_path(connector, self._CONNECTOR_CATEGORIES)
 
-        # Validar existencia antes de inicializar
+        # Validar existencia
         missing_resources = []
         for name, p in [
             ("gguf_checkpoint", gguf_checkpoint_path),
@@ -203,25 +210,31 @@ class LTXDistilledGGUFPipelineLoader:
             msg_lines.append("Descarga los modelos LTX 2.3 y colócalos en las carpetas de ComfyUI indicadas.")
             raise FileNotFoundError("\n".join(msg_lines))
 
-        torch_device = torch.device(device)
-        pipeline = LTXDistilledGGUFVideoPipeline.create(
+        config = LTXPipelineConfig(
             checkpoint_path=gguf_checkpoint_path,
             gemma_root=gemma_path_or_dir,
             upsampler_path=spatial_upscaler_path,
-            device=torch_device,
             vae_video_path=vae_video_path,
             audio_vae_path=audio_vae_path,
             connector_path=connector_path,
+            pipeline_type="distilled_gguf",
+            device=device,
         )
+
+        adapter = LTXPipelineAdapter()
+        pipeline = adapter.load_pipeline(config)
         return (pipeline,)
 
 
+# =============================================================================
+# [LTX] Fast Pipeline Loader  (Legacy Wrapper → Hexagonal)
+# =============================================================================
 class LTXFastPipelineLoader:
     """
-    [LTX] Fast Pipeline Loader:
-    Carga el transformador estándar de LTX (SafeTensors) en fp8/bf16 de forma nativa desde ComfyUI.
+    [LTX] Fast Pipeline Loader (Legacy):
+    Carga el transformador estándar de LTX (SafeTensors) en fp8/bf16.
+    Internamente delega a LTXPipelineAdapter (infraestructura hexagonal).
     """
-    # Categorías de folder_paths donde se buscan los recursos
     _CHECKPOINT_CATEGORIES = ["diffusion_models", "checkpoints", "unet"]
     _GEMMA_CATEGORIES = ["clip", "text_encoders"]
     _UPSCALER_CATEGORIES = ["latent_upscale_models", "upscale_models"]
@@ -246,12 +259,12 @@ class LTXFastPipelineLoader:
     FUNCTION = "load_pipeline"
     CATEGORY = "flux_collection_advanced/ltx"
 
+    @hex_error_handler
     def load_pipeline(self, checkpoint, gemma_directory, spatial_upscaler, device):
         checkpoint_path = resolve_ltx_path(checkpoint, self._CHECKPOINT_CATEGORIES)
         gemma_path_or_dir = resolve_ltx_path(gemma_directory, self._GEMMA_CATEGORIES)
         spatial_upscaler_path = resolve_ltx_path(spatial_upscaler, self._UPSCALER_CATEGORIES)
 
-        # Validar existencia antes de inicializar
         missing_resources = []
         for name, p in [
             ("checkpoint", checkpoint_path),
@@ -270,21 +283,27 @@ class LTXFastPipelineLoader:
             msg_lines.append("Descarga los modelos LTX 2.3 y colócalos en las carpetas de ComfyUI indicadas.")
             raise FileNotFoundError("\n".join(msg_lines))
 
-        torch_device = torch.device(device)
-        pipeline = LTXFastVideoPipeline.create(
+        config = LTXPipelineConfig(
             checkpoint_path=checkpoint_path,
             gemma_root=gemma_path_or_dir,
             upsampler_path=spatial_upscaler_path,
-            device=torch_device,
+            pipeline_type="fast",
+            device=device,
         )
+
+        adapter = LTXPipelineAdapter()
+        pipeline = adapter.load_pipeline(config)
         return (pipeline,)
 
 
+# =============================================================================
+# [LTX] Video Sampler  (Legacy Wrapper → Hexagonal)
+# =============================================================================
 class LTXVideoSampler:
     """
-    [LTX] Video Sampler:
-    Toma un pipeline cargado y genera los frames del video en ComfyUI,
-    soportando de manera opcional condicionamiento de imagen (Image-to-Video).
+    [LTX] Video Sampler (Legacy):
+    Toma un pipeline cargado y genera los frames del video en ComfyUI.
+    Internamente delega a LTXVideoGenerationService (aplicación hexagonal).
     """
     @classmethod
     def INPUT_TYPES(s):
@@ -294,7 +313,7 @@ class LTXVideoSampler:
                 "prompt": ("STRING", {"multiline": True, "default": "a slow camera pan across a realistic forest portrait, high definition"}),
                 "width": ("INT", {"default": 768, "min": 64, "max": 2048, "step": 32}),
                 "height": ("INT", {"default": 512, "min": 64, "max": 2048, "step": 32}),
-                "num_frames": ("INT", {"default": 97, "min": 9, "max": 257, "step": 8}), # 8k+1
+                "num_frames": ("INT", {"default": 97, "min": 9, "max": 257, "step": 8}),
                 "frame_rate": ("FLOAT", {"default": 24.0, "min": 1.0, "max": 120.0}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
             },
@@ -309,56 +328,41 @@ class LTXVideoSampler:
     FUNCTION = "sample"
     CATEGORY = "flux_collection_advanced/ltx"
 
+    @hex_error_handler
     def sample(self, ltx_pipeline, prompt, width, height, num_frames, frame_rate, seed, image=None, strength=1.0):
-        tiling_config = default_tiling_config()
-        
-        # Preparación de imágenes condicionales (I2V) si se proporciona una imagen
-        images_input = []
+        # Preparar imagen condicional (I2V) si se proporciona
+        image_path = ""
         temp_file = None
         if image is not None:
-            # ComfyUI image shape is [B, H, W, C]. Extraemos el primer frame.
-            frame_tensor = image[0]
-            # Convertir a [0, 255] uint8 numpy array
+            frame_tensor = image[0]  # [H, W, C]
             np_frame = (frame_tensor.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
             pil_image = Image.fromarray(np_frame)
-            
-            # Guardamos a un archivo temporal
+            pil_image = pil_image.resize((width, height), Image.Resampling.LANCZOS)
             temp_dir = tempfile.gettempdir()
             temp_file = os.path.join(temp_dir, f"ltx_cond_{seed}.png")
-            # Redimensionamos la imagen condicional para que encaje con las dimensiones de salida de LTX
-            pil_image = pil_image.resize((width, height), Image.Resampling.LANCZOS)
             pil_image.save(temp_file)
-            
-            # Representación local compatible
-            images_input = [{"path": temp_file, "frame_idx": 0, "strength": strength}]
+            image_path = temp_file
 
         try:
-            # Ejecutamos la inferencia de forma aislada
-            result = ltx_pipeline._run_inference(
+            settings = LTXGenerationSettings(
                 prompt=prompt,
-                seed=seed,
-                height=height,
                 width=width,
+                height=height,
                 num_frames=num_frames,
                 frame_rate=frame_rate,
-                images=images_input,
-                tiling_config=tiling_config,
+                seed=seed,
+                strength=strength,
+                image_path=image_path,
             )
-            
-            video_tensor, audio_np, sampling_rate = extract_video_audio(result)
-            
-            # video_tensor tiene forma [frames, height, width, 3] en escala [0, 255]
-            # ComfyUI espera [frames, height, width, 3] float32 [0.0, 1.0]
-            comfyui_images = video_tensor.to(dtype=torch.float32) / 255.0
-            
-            audio_data = None
-            if audio_np is not None:
-                audio_data = (audio_np, sampling_rate)
-            
-            return (comfyui_images, audio_data)
-            
+
+            service = LTXVideoGenerationService(
+                pipeline_adapter=LTXPipelineAdapter(),
+            )
+
+            video_output, audio_data = service.generate(ltx_pipeline, settings)
+            return (video_output, audio_data)
+
         finally:
-            # Eliminar archivo temporal
             if temp_file and os.path.exists(temp_file):
                 try:
                     os.unlink(temp_file)
@@ -366,12 +370,14 @@ class LTXVideoSampler:
                     pass
 
 
+# =============================================================================
+# [LTX] Video Saver  (Legacy Wrapper → Hexagonal)
+# =============================================================================
 class LTXVideoSaver:
     """
-    [LTX] Video Saver:
-    Toma los fotogramas del video en formato IMAGE de ComfyUI, los codifica en un archivo MP4
-    usando imageio y lo guarda en la carpeta de salida (output) de ComfyUI, permitiendo
-    ver la previsualización interactiva del video en la interfaz gráfica.
+    [LTX] Video Saver (Legacy):
+    Toma los fotogramas del video en formato IMAGE de ComfyUI, los codifica en MP4
+    y permite mezclar audio. Internamente delega a ExportVideoService (aplicación hexagonal).
     """
     @classmethod
     def INPUT_TYPES(s):
@@ -391,53 +397,39 @@ class LTXVideoSaver:
     OUTPUT_NODE = True
     CATEGORY = "flux_collection_advanced/ltx"
 
+    @hex_error_handler
     def save_video(self, images, fps, filename_prefix, audio=None):
-        import imageio
-        
-        base_output = folder_paths.get_output_directory()
-        
-        # Agrupamos los videos por fecha actual
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        subfolder = os.path.join(today, "ltx_videos")
-        target_dir = os.path.join(base_output, subfolder)
-        os.makedirs(target_dir, exist_ok=True)
-        
-        timestamp = datetime.datetime.now().strftime("%H%M%S")
-        filename = f"{filename_prefix}_{timestamp}.mp4"
-        full_path = os.path.join(target_dir, filename)
-        
-        # Convertimos el tensor float32 [0.0, 1.0] de ComfyUI a arrays uint8 [0, 255]
-        video_data = []
-        for frame in images:
-            f_np = (frame.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
-            video_data.append(f_np)
-            
-        # Guardamos usando imageio
-        imageio.mimwrite(full_path, video_data, fps=fps, quality=8, macro_block_size=16)
-        
-        # Si hay audio, mezclar con ffmpeg
+        manifest = VideoExportManifest(
+            filename_prefix=filename_prefix,
+            index=0,
+            fps=fps,
+            custom_path="",
+        )
+
+        service = ExportVideoService()
+        full_path = service.export_video(manifest, images)
+
+        # Mezclar audio si está disponible
         if audio is not None:
             try:
                 audio_np, sampling_rate = audio
-                audio_filename = f"{filename_prefix}_{timestamp}.wav"
-                audio_path = os.path.join(target_dir, audio_filename)
+                audio_path = os.path.splitext(full_path)[0] + ".wav"
                 save_audio_wav(audio_path, audio_np, sampling_rate)
-                
-                # Mezclar video + audio con ffmpeg
-                muxed_filename = f"{filename_prefix}_{timestamp}_audio.mp4"
-                muxed_path = os.path.join(target_dir, muxed_filename)
+
+                muxed_path = os.path.splitext(full_path)[0] + "_muxed.mp4"
                 mux_video_audio_with_ffmpeg(full_path, audio_path, muxed_path)
-                
-                # Reemplazar el MP4 original con el mezclado
                 os.replace(muxed_path, full_path)
-                # Limpiar WAV temporal
                 try:
                     os.unlink(audio_path)
                 except Exception:
                     pass
             except Exception as e:
                 print(f"[LTX VideoSaver] Advertencia: no se pudo mezclar audio: {e}")
-        
-        # ComfyUI usa el diccionario "ui" con la clave "gifs" para mostrar el video interactivo en la UI
-        subfolder_formatted = subfolder.replace("\\", "/")
-        return {"ui": {"gifs": [{"filename": filename, "subfolder": subfolder_formatted, "type": "output"}]}}
+
+        # Construir payload UI para previsualización en ComfyUI
+        base_output = folder_paths.get_output_directory()
+        rel_path = os.path.relpath(full_path, base_output)
+        subfolder = os.path.dirname(rel_path).replace("\\", "/")
+        filename = os.path.basename(full_path)
+
+        return {"ui": {"gifs": [{"filename": filename, "subfolder": subfolder, "type": "output"}]}}

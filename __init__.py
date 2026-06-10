@@ -54,17 +54,13 @@ load_node("hex_image_upscaler", "FluxImageUpscalerHex", "FluxImageUpscalerHex", 
 load_node("hex_image_lora_detailer", "FluxLoraDetailerHex", "FluxLoraDetailerHex", "[HEX] Flux Lora Detailer")
 load_node("hex_image_vram_loader_beta", "FluxVRAMLoaderBetaHex", "FluxVRAMLoaderBetaHex", "[HEX] Flux VRAM Loader Beta")
 
-# Registro de nodos HEX LTX Video 2.3
+# Registro de nodos HEX LTX Video 2.3 (Arquitectura Hexagonal Pura)
 load_node("hex_ltx_loader", "LTXLoaderHex", "LTXLoaderHex", "[HEX] LTX Loader")
 load_node("hex_ltx_sampler", "LTXSamplerHex", "LTXSamplerHex", "[HEX] LTX Sampler")
 load_node("hex_ltx_video_saver", "LTXVideoSaverHex", "LTXVideoSaverHex", "[HEX] LTX Video Saver")
 
-# Registro de nodos HEX LTX NATIVE (pipeline nativo ComfyUI con Gemma GGUF)
-load_node("hex_ltx_native_loader", "LTXNativeLoaderHex", "LTXNativeLoaderHex", "[HEX] LTX Native Loader")
-load_node("hex_ltx_native_sampler", "LTXNativeSamplerHex", "LTXNativeSamplerHex", "[HEX] LTX Native Sampler")
-load_node("hex_ltx_native_saver", "LTXNativeSaverHex", "LTXNativeSaverHex", "[HEX] LTX Native Saver")
-
-# Registro de nodos LTX Video v2.3 LEGACY (mantenidos como fallback)
+# Registro de nodos LTX Video v2.3 LEGACY (Thin Wrappers sobre Hexagonal)
+# Mantienen la interfaz estable para workflows existentes pero delegan 100% a la arquitectura HEX.
 load_node("ltx_nodes", "LTXDistilledGGUFPipelineLoader", "LTXDistilledGGUFPipelineLoader", "[LTX] Distilled GGUF Loader")
 load_node("ltx_nodes", "LTXFastPipelineLoader", "LTXFastPipelineLoader", "[LTX] Fast Loader")
 load_node("ltx_nodes", "LTXVideoSampler", "LTXVideoSampler", "[LTX] Video Sampler")
