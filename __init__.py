@@ -54,6 +54,11 @@ load_node("hex_image_upscaler", "FluxImageUpscalerHex", "FluxImageUpscalerHex", 
 load_node("hex_image_lora_detailer", "FluxLoraDetailerHex", "FluxLoraDetailerHex", "[HEX] Flux Lora Detailer")
 load_node("hex_image_vram_loader_beta", "FluxVRAMLoaderBetaHex", "FluxVRAMLoaderBetaHex", "[HEX] Flux VRAM Loader Beta")
 
+# Registro de nodos LTX Video v2.3
+load_node("ltx_nodes", "LTXDistilledGGUFPipelineLoader", "LTXDistilledGGUFPipelineLoader", "[LTX] Distilled GGUF Loader")
+load_node("ltx_nodes", "LTXFastPipelineLoader", "LTXFastPipelineLoader", "[LTX] Fast Loader")
+load_node("ltx_nodes", "LTXVideoSampler", "LTXVideoSampler", "[LTX] Video Sampler")
+
 # Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
 if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
     load_node("test_hex_loaders", "Test_Hex_UnetLoader", "TestHexUnetLoader", "[TEST] Hex UNET Loader")
