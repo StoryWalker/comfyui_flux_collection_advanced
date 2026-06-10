@@ -11,6 +11,10 @@ import numpy as np
 import torch
 import safetensors.torch as _sft
 
+# Optimización: mayor precisión en operaciones matriciales float32 en GPUs modernas
+if torch.cuda.is_available():
+    torch.set_float32_matmul_precision('high')
+
 logger = logging.getLogger(__name__)
 
 # Intentar importar gguf
@@ -333,9 +337,10 @@ def device_supports_fp8(device: str | torch.device | object | None) -> bool:
 
 def default_tiling_config():
     from ltx_core.model.video_vae.tiling import TilingConfig, SpatialTilingConfig, TemporalTilingConfig
+    # Tiling agresivo para reducir presión de VRAM en RTX 5080 16GB
     return TilingConfig(
-        spatial_config=SpatialTilingConfig(tile_size_in_pixels=256, tile_overlap_in_pixels=64),
-        temporal_config=TemporalTilingConfig(tile_size_in_frames=32, tile_overlap_in_frames=16),
+        spatial_config=SpatialTilingConfig(tile_size_in_pixels=128, tile_overlap_in_pixels=32),
+        temporal_config=TemporalTilingConfig(tile_size_in_frames=16, tile_overlap_in_frames=8),
     )
 
 
@@ -456,6 +461,7 @@ class LTXFastVideoPipeline:
             loras=[],
             device=device,
             quantization=self._quantization,
+            torch_compile=True,
         )
 
     def _run_inference(self, prompt: str, seed: int, height: int, width: int, num_frames: int, frame_rate: float, images: list, tiling_config) -> tuple:
@@ -468,17 +474,18 @@ class LTXFastVideoPipeline:
             strength = getattr(img, "strength", img.get("strength") if isinstance(img, dict) else 1.0)
             ltx_images.append(_LtxImageInput(path, frame_idx, strength))
 
-        return self.pipeline(
-            prompt=prompt,
-            seed=seed,
-            height=height,
-            width=width,
-            num_frames=num_frames,
-            frame_rate=frame_rate,
-            images=ltx_images,
-            tiling_config=tiling_config,
-            streaming_prefetch_count=2,
-        )
+        with torch.inference_mode():
+            return self.pipeline(
+                prompt=prompt,
+                seed=seed,
+                height=height,
+                width=width,
+                num_frames=num_frames,
+                frame_rate=frame_rate,
+                images=ltx_images,
+                tiling_config=tiling_config,
+                streaming_prefetch_count=4,
+            )
 
 
 class LTXDistilledGGUFVideoPipeline:
@@ -517,6 +524,7 @@ class LTXDistilledGGUFVideoPipeline:
             loras=[],
             device=device,
             quantization=self._quantization,
+            torch_compile=True,
         )
 
         self._patch_builders()
@@ -581,7 +589,8 @@ class LTXDistilledGGUFVideoPipeline:
                 yield wrapped
             finally:
                 wrapped.teardown()
-                torch.cuda.empty_cache()
+                if os.environ.get("LTX_DISABLE_EMPTY_CACHE", "0") != "1":
+                    torch.cuda.empty_cache()
                 cleanup_memory()
 
         setattr(stage, "_transformer_ctx", _transformer_ctx)
@@ -597,15 +606,16 @@ class LTXDistilledGGUFVideoPipeline:
             strength = getattr(img, "strength", img.get("strength") if isinstance(img, dict) else 1.0)
             ltx_images.append(_LtxImageInput(path, frame_idx, strength))
 
-        result = self.pipeline(
-            prompt=prompt,
-            seed=seed,
-            height=height,
-            width=width,
-            num_frames=num_frames,
-            frame_rate=frame_rate,
-            images=ltx_images,
-            tiling_config=tiling_config,
-            streaming_prefetch_count=2,
-        )
-        return result
+        with torch.inference_mode():
+            result = self.pipeline(
+                prompt=prompt,
+                seed=seed,
+                height=height,
+                width=width,
+                num_frames=num_frames,
+                frame_rate=frame_rate,
+                images=ltx_images,
+                tiling_config=tiling_config,
+                streaming_prefetch_count=4,
+            )
+            return result

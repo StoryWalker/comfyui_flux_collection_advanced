@@ -24,15 +24,18 @@ Esta guía detalla los archivos de modelos y carpetas que necesitas colocar en l
 
 A partir de la versión **0.4.0-sprint7**, el proyecto consolidó todos los pipelines LTX en una única opción:
 
-| Característica | `[LTX]` Legacy (Optimizado) |
-|---|---|
-| **Formato** | GGUF Q4_K_M (UNET) + Folder HuggingFace (Gemma) |
-| **Audio** | ✅ Nativo (2 pasadas AV) |
-| **Velocidad** | Optimizada (`torch_compile`, prefetch=4, tiling agresivo) |
-| **VRAM mínima** | 12-16 GB |
-| **Nodos** | 4 nodos: Loader GGUF, Loader Fast, Sampler, Saver |
+| Característica | `[HEX] LTX` (Hexagonal) | `[LTX]` Legacy (Wrapper) |
+|---|---|---|
+| **Formato** | GGUF Q4_K_M + Folder HuggingFace (Gemma) | Igual que HEX |
+| **Audio** | ✅ Nativo (2 pasadas AV) | Igual que HEX |
+| **Velocidad** | Optimizada (`torch_compile`, prefetch=4, tiling agresivo) | Igual (delega a HEX) |
+| **VRAM mínima** | 12-16 GB | Igual |
+| **Nodos** | 3 nodos unificados (Loader, Sampler, Saver) | 4 nodos separados (2 Loaders, Sampler, Saver) |
+| **Arquitectura** | Hexagonal pura (Domain → Application → Infrastructure) | Thin wrapper sobre HEX (backward compat) |
 
-> **Nota histórica:** Los nodos `[HEX] LTX` y `[HEX] LTX Native` fueron eliminados en Sprint 7 para consolidar esfuerzos de desarrollo en el pipeline `DistilledPipeline` probado.
+> **Recomendación:** Usa `[HEX] LTX` para nuevos workflows. Usa `[LTX]` legacy solo si tienes workflows antiguos que no quieres reconectar.
+>
+> **Nota histórica:** Los nodos `[HEX] LTX Native` fueron eliminados en Sprint 7. Solo quedan `[HEX] LTX` (hexagonal puro) y `[LTX]` (legacy wrapper).
 
 ---
 
@@ -71,10 +74,13 @@ Para utilizar el nodo **`[LTX] Distilled GGUF Loader`**, coloca los siguientes 6
 
 | Node | Archivo | Función |
 |------|---------|---------|
-| **`[LTX] Distilled GGUF Loader`** | `ltx_nodes.py` | Carga UNET GGUF + Gemma folder + VAEs + Upscaler + Connectors. Optimizado con `torch_compile` y cache de transformer. |
-| **`[LTX] Fast Loader`** | `ltx_nodes.py` | Carga checkpoint SafeTensors + Gemma folder + Upscaler. Para GPUs con 24GB+ VRAM. |
-| **`[LTX] Video Sampler`** | `ltx_nodes.py` | Genera video T2V/I2V con 2 pasadas de sampling (estructural + refinamiento). Soporta audio nativo. |
-| **`[LTX] Video Saver`** | `ltx_nodes.py` | Guarda MP4 con muxing de audio via ffmpeg. Preview interactivo. |
+| **`[HEX] LTX Loader`** | `hex_ltx_loader.py` | Loader unificado (Fast o GGUF en un solo nodo). Arquitectura hexagonal pura. |
+| **`[HEX] LTX Sampler`** | `hex_ltx_sampler.py` | Sampler T2V/I2V con audio. Arquitectura hexagonal pura. |
+| **`[HEX] LTX Video Saver`** | `hex_ltx_video_saver.py` | Saver MP4 + audio mux. Arquitectura hexagonal pura. |
+| **`[LTX] Distilled GGUF Loader`** | `ltx_nodes.py` | Wrapper legacy. Delega a `LTXPipelineAdapter`. Mantiene interfaz estable. |
+| **`[LTX] Fast Loader`** | `ltx_nodes.py` | Wrapper legacy. Delega a `LTXPipelineAdapter`. Mantiene interfaz estable. |
+| **`[LTX] Video Sampler`** | `ltx_nodes.py` | Wrapper legacy. Delega a `LTXVideoGenerationService`. |
+| **`[LTX] Video Saver`** | `ltx_nodes.py` | Wrapper legacy. Delega a `ExportVideoService`. |
 
 ---
 
@@ -127,6 +133,9 @@ El backend `ltx_backend.py` incluye las siguientes optimizaciones automáticas:
 | **`torch.set_float32_matmul_precision('high')`** | Activa TF32 en operaciones matriciales. Aprovechado por RTX 30xx/40xx/50xx. | **5-10%** |
 | **`torch.inference_mode()`** | Modo de inferencia optimizado. Desactiva gradientes y bookkeeping. | **5%** |
 | **Cache de transformer en CPU RAM** | El modelo GGUF se cachea en RAM del sistema y se hace streaming a GPU por capas. | Evita recarga completa entre ejecuciones. |
+| **`LTX_DISABLE_EMPTY_CACHE=1`** | Variable de entorno. Desactiva `torch.cuda.empty_cache()` entre ejecuciones para reducir overhead. | **10-15%** (experimental) |
+
+> **Uso avanzado:** Si tienes suficiente VRAM y no necesitas liberar memoria entre generaciones, ejecuta ComfyUI con `LTX_DISABLE_EMPTY_CACHE=1` para ganar velocidad extra.
 
 **Mejora combinada esperada:** ~50-60% más rápido que la versión sin optimizar.
 
@@ -193,4 +202,4 @@ El backend `ltx_backend.py` incluye las siguientes optimizaciones automáticas:
 
 ---
 
-*Última actualización: 2026-06-10 — Consolidación en pipeline `[LTX]` legacy + optimizaciones de performance (Sprint 7).*
+*Última actualización: 2026-06-10 — Arquitectura hexagonal para LTX + optimizaciones de performance (Sprint 7).*
