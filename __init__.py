@@ -66,6 +66,11 @@ load_node("ltx_nodes", "LTXFastPipelineLoader", "LTXFastPipelineLoader", "[LTX] 
 load_node("ltx_nodes", "LTXVideoSampler", "LTXVideoSampler", "[LTX] Video Sampler")
 load_node("ltx_nodes", "LTXVideoSaver", "LTXVideoSaver", "[LTX] Video Saver")
 
+# Registro de nodos NVFP4 experimentales (validación sin romper flujos existentes)
+load_node("nvfp4_image_loader", "NVFP4ImageLoader", "NVFP4ImageLoader", "[NVFP4] Image Loader")
+load_node("nvfp4_image_sampler", "NVFP4ImageSampler", "NVFP4ImageSampler", "[NVFP4] Image Sampler")
+load_node("nvfp4_image_preview", "NVFP4ImagePreview", "NVFP4ImagePreview", "[NVFP4] Image Preview")
+
 # Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
 if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
     load_node("test_hex_loaders", "Test_Hex_UnetLoader", "TestHexUnetLoader", "[TEST] Hex UNET Loader")
