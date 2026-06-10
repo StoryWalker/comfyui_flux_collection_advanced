@@ -14,31 +14,20 @@ except ImportError:
     pass
 
 import folder_paths
-from ltx_pipelines.distilled import DistilledPipeline
-from ltx_core.quantization import QuantizationPolicy
 
-# Centralized NexusForge models directory
-NEXUS_MODELS_DIR = "C:/Users/GATEWAY/AppData/Local/NexusForge/models"
+# Intento de importación relativa (ComfyUI) o absoluta (tests)
+try:
+    from .ltx_backend import LTXDistilledGGUFVideoPipeline, LTXFastVideoPipeline, default_tiling_config
+except ImportError:
+    from ltx_backend import LTXDistilledGGUFVideoPipeline, LTXFastVideoPipeline, default_tiling_config
+
 
 def scan_ltx_files(comfyui_folder_type, extension_or_dir, default_file=None):
     """
-    Scans both NexusForge AppData and ComfyUI standard directories to return
-    a list of available files/folders for dropdown menus in the UI.
+    Escanea carpetas nativas de ComfyUI para retornar una lista de modelos disponibles.
     """
     files = []
     
-    # 1. Scan NexusForge models folder
-    if os.path.exists(NEXUS_MODELS_DIR):
-        for name in os.listdir(NEXUS_MODELS_DIR):
-            path = os.path.join(NEXUS_MODELS_DIR, name)
-            if extension_or_dir == "dir":
-                if os.path.isdir(path):
-                    files.append(name)
-            else:
-                if os.path.isfile(path) and name.endswith(extension_or_dir):
-                    files.append(name)
-                    
-    # 2. Scan ComfyUI folders
     if comfyui_folder_type:
         try:
             comfy_files = folder_paths.get_filename_list(comfyui_folder_type)
@@ -53,7 +42,6 @@ def scan_ltx_files(comfyui_folder_type, extension_or_dir, default_file=None):
         except Exception:
             pass
             
-    # Include default file if not already detected
     if default_file and default_file not in files:
         files.insert(0, default_file)
         
@@ -63,23 +51,16 @@ def scan_ltx_files(comfyui_folder_type, extension_or_dir, default_file=None):
     return sorted(list(set(files)))
 
 
-def resolve_ltx_path(filename, comfyui_folder_type=None, default_file=None):
+def resolve_ltx_path(filename, comfyui_folder_type=None):
     """
-    Resolves the actual path on disk for the chosen model name.
+    Resuelve la ruta completa de un modelo en ComfyUI.
     """
     if not filename or filename == "None":
         return None
         
-    # If absolute path is directly written/passed
     if os.path.isabs(filename) and os.path.exists(filename):
         return filename
         
-    # Check in NexusForge models directory
-    nexus_path = os.path.join(NEXUS_MODELS_DIR, filename)
-    if os.path.exists(nexus_path):
-        return nexus_path
-        
-    # Check in ComfyUI folders
     if comfyui_folder_type:
         try:
             full_path = folder_paths.get_full_path(comfyui_folder_type, filename)
@@ -88,15 +69,14 @@ def resolve_ltx_path(filename, comfyui_folder_type=None, default_file=None):
         except Exception:
             pass
             
-    # Fallback to default path
-    return nexus_path
+    return None
 
 
 class LTXDistilledGGUFPipelineLoader:
     """
     [LTX] Distilled GGUF Pipeline Loader:
     Carga el transformador cuantizado (Q4_K_M GGUF) y sus modelos acompañantes (VAEs, Conector, Gemma)
-    en una instancia optimizada de DistilledPipeline.
+    nativamente desde las carpetas de ComfyUI en una instancia optimizada de DistilledPipeline.
     """
     @classmethod
     def INPUT_TYPES(s):
@@ -125,7 +105,6 @@ class LTXDistilledGGUFPipelineLoader:
     CATEGORY = "flux_collection_advanced/ltx"
 
     def load_pipeline(self, gguf_checkpoint, gemma_directory, spatial_upscaler, vae_video, audio_vae, connector, device):
-        # Resolver las rutas completas
         gguf_checkpoint_path = resolve_ltx_path(gguf_checkpoint, "checkpoints")
         gemma_path_or_dir = resolve_ltx_path(gemma_directory, "clip")
         spatial_upscaler_path = resolve_ltx_path(spatial_upscaler, "upscale_models")
@@ -133,9 +112,17 @@ class LTXDistilledGGUFPipelineLoader:
         audio_vae_path = resolve_ltx_path(audio_vae, "vae")
         connector_path = resolve_ltx_path(connector, "clip")
 
-        # Añadimos el directorio G: del proyecto al PATH para importar los módulos auxiliares de GGUF
-        sys.path.append(r"G:\Developing\Claude\ltx_video\NexusForge\backend")
-        from services.fast_video_pipeline.ltx_distilled_gguf_video_pipeline import LTXDistilledGGUFVideoPipeline
+        # Validar existencia antes de inicializar
+        for name, p in [
+            ("gguf_checkpoint", gguf_checkpoint_path),
+            ("gemma_directory", gemma_path_or_dir),
+            ("spatial_upscaler", spatial_upscaler_path),
+            ("vae_video", vae_video_path),
+            ("audio_vae", audio_vae_path),
+            ("connector", connector_path)
+        ]:
+            if not p or not os.path.exists(p):
+                raise FileNotFoundError(f"[LTX Loader Error] No se pudo encontrar el recurso: {name} (ruta esperada: {p})")
 
         torch_device = torch.device(device)
         pipeline = LTXDistilledGGUFVideoPipeline.create(
@@ -153,7 +140,7 @@ class LTXDistilledGGUFPipelineLoader:
 class LTXFastPipelineLoader:
     """
     [LTX] Fast Pipeline Loader:
-    Carga el transformador estándar de LTX (SafeTensors) en fp8/bf16 de forma nativa.
+    Carga el transformador estándar de LTX (SafeTensors) en fp8/bf16 de forma nativa desde ComfyUI.
     """
     @classmethod
     def INPUT_TYPES(s):
@@ -180,8 +167,14 @@ class LTXFastPipelineLoader:
         gemma_path_or_dir = resolve_ltx_path(gemma_directory, "clip")
         spatial_upscaler_path = resolve_ltx_path(spatial_upscaler, "upscale_models")
 
-        sys.path.append(r"G:\Developing\Claude\ltx_video\NexusForge\backend")
-        from services.fast_video_pipeline.ltx_fast_video_pipeline import LTXFastVideoPipeline
+        # Validar existencia antes de inicializar
+        for name, p in [
+            ("checkpoint", checkpoint_path),
+            ("gemma_directory", gemma_path_or_dir),
+            ("spatial_upscaler", spatial_upscaler_path)
+        ]:
+            if not p or not os.path.exists(p):
+                raise FileNotFoundError(f"[LTX Loader Error] No se pudo encontrar el recurso: {name} (ruta esperada: {p})")
 
         torch_device = torch.device(device)
         pipeline = LTXFastVideoPipeline.create(
@@ -223,20 +216,15 @@ class LTXVideoSampler:
     CATEGORY = "flux_collection_advanced/ltx"
 
     def sample(self, ltx_pipeline, prompt, width, height, num_frames, frame_rate, seed, image=None, strength=1.0):
-        # Creamos la configuración de tiling por defecto optimizada para Blackwell/OOM
-        sys.path.append(r"G:\Developing\Claude\ltx_video\NexusForge\backend")
-        from services.ltx_pipeline_common import default_tiling_config
-        from api_types import ImageConditioningInput
-        
         tiling_config = default_tiling_config()
         
         # Preparación de imágenes condicionales (I2V) si se proporciona una imagen
         images_input = []
         temp_file = None
         if image is not None:
-            # ComfyUI image shape is [B, H, W, C]. We extract the first frame.
+            # ComfyUI image shape is [B, H, W, C]. Extraemos el primer frame.
             frame_tensor = image[0]
-            # Convert to [0, 255] uint8 numpy array
+            # Convertir a [0, 255] uint8 numpy array
             np_frame = (frame_tensor.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
             pil_image = Image.fromarray(np_frame)
             
@@ -247,12 +235,12 @@ class LTXVideoSampler:
             pil_image = pil_image.resize((width, height), Image.Resampling.LANCZOS)
             pil_image.save(temp_file)
             
-            images_input = [ImageConditioningInput(path=temp_file, frame_idx=0, strength=strength)]
+            # Representación local compatible
+            images_input = [{"path": temp_file, "frame_idx": 0, "strength": strength}]
 
         try:
-            # Ejecutamos la inferencia
-            # ltx_pipeline es una instancia de LTXFastVideoPipeline o LTXDistilledGGUFVideoPipeline
-            video, audio = ltx_pipeline._run_inference(
+            # Ejecutamos la inferencia de forma aislada
+            video = ltx_pipeline._run_inference(
                 prompt=prompt,
                 seed=seed,
                 height=height,
@@ -263,12 +251,13 @@ class LTXVideoSampler:
                 tiling_config=tiling_config,
             )
             
-            # Recolectamos todos los frames del tensor
-            if isinstance(video, torch.Tensor):
-                video_tensor = video
+            if isinstance(video, tuple):
+                video_tensor = video[0]
             else:
-                # Es un Iterator[torch.Tensor]
-                video_tensor = torch.cat(list(video), dim=0)
+                video_tensor = video
+                
+            if not isinstance(video_tensor, torch.Tensor):
+                video_tensor = torch.cat(list(video_tensor), dim=0)
             
             # video_tensor tiene forma [frames, height, width, 3] en escala [0, 255]
             # ComfyUI espera [frames, height, width, 3] float32 [0.0, 1.0]
@@ -277,7 +266,7 @@ class LTXVideoSampler:
             return (comfyui_images,)
             
         finally:
-            # Nos aseguramos de eliminar el archivo temporal
+            # Eliminar archivo temporal
             if temp_file and os.path.exists(temp_file):
                 try:
                     os.unlink(temp_file)

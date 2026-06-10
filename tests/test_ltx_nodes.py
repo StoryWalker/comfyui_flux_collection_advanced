@@ -2,7 +2,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 import torch
 
 # CRITICAL WORKAROUND: Force a valid ModuleSpec for imageio to prevent ValueError: imageio.__spec__ is None
@@ -20,13 +20,15 @@ try:
 except Exception:
     pass
 
-# Ensure the backend directory is in the path for both tests and node imports
-sys.path.append(r"G:\Developing\Claude\ltx_video\NexusForge\backend")
 sys.path.append(os.getcwd())
 
 import folder_paths
 if not hasattr(folder_paths, "get_output_directory"):
     folder_paths.get_output_directory = lambda: "/tmp"
+if not hasattr(folder_paths, "get_filename_list"):
+    folder_paths.get_filename_list = lambda x: []
+if not hasattr(folder_paths, "get_full_path"):
+    folder_paths.get_full_path = lambda x, y: f"/tmp/{y}"
 
 from ltx_nodes import LTXDistilledGGUFPipelineLoader, LTXFastPipelineLoader, LTXVideoSampler
 
@@ -34,11 +36,11 @@ from ltx_nodes import LTXDistilledGGUFPipelineLoader, LTXFastPipelineLoader, LTX
 class TestLTXNodes(unittest.TestCase):
 
     @patch("ltx_nodes.resolve_ltx_path")
-    @patch("services.fast_video_pipeline.ltx_distilled_gguf_video_pipeline.LTXDistilledGGUFVideoPipeline")
-    def test_gguf_loader_initializes_pipeline(self, mock_gguf_pipeline, mock_resolve):
+    @patch("ltx_nodes.LTXDistilledGGUFVideoPipeline")
+    @patch("os.path.exists", return_value=True)
+    def test_gguf_loader_initializes_pipeline(self, mock_exists, mock_gguf_pipeline, mock_resolve):
         mock_instance = MagicMock()
         mock_gguf_pipeline.create.return_value = mock_instance
-        # Mock resolve to return a resolved string path
         mock_resolve.side_effect = lambda filename, folder_type=None: f"resolved/{filename}"
 
         loader = LTXDistilledGGUFPipelineLoader()
@@ -65,8 +67,9 @@ class TestLTXNodes(unittest.TestCase):
         )
 
     @patch("ltx_nodes.resolve_ltx_path")
-    @patch("services.fast_video_pipeline.ltx_fast_video_pipeline.LTXFastVideoPipeline")
-    def test_fast_loader_initializes_pipeline(self, mock_fast_pipeline, mock_resolve):
+    @patch("ltx_nodes.LTXFastVideoPipeline")
+    @patch("os.path.exists", return_value=True)
+    def test_fast_loader_initializes_pipeline(self, mock_exists, mock_fast_pipeline, mock_resolve):
         mock_instance = MagicMock()
         mock_fast_pipeline.create.return_value = mock_instance
         mock_resolve.side_effect = lambda filename, folder_type=None: f"resolved/{filename}"
@@ -88,7 +91,7 @@ class TestLTXNodes(unittest.TestCase):
             device=torch.device("cpu")
         )
 
-    @patch("services.ltx_pipeline_common.default_tiling_config")
+    @patch("ltx_nodes.default_tiling_config")
     def test_sampler_without_image_converts_output_range(self, mock_tiling):
         mock_pipeline = MagicMock()
         # Mocking VAE output video: a 4-frame video of shape [4, 64, 64, 3] with values in [0, 255]
@@ -117,7 +120,7 @@ class TestLTXNodes(unittest.TestCase):
         self.assertTrue(output_tensor.max() <= 1.0)
         self.assertTrue(output_tensor.min() >= 0.0)
 
-    @patch("services.ltx_pipeline_common.default_tiling_config")
+    @patch("ltx_nodes.default_tiling_config")
     def test_sampler_with_image_creates_temp_file(self, mock_tiling):
         mock_pipeline = MagicMock()
         fake_video = torch.randint(0, 256, (2, 64, 64, 3), dtype=torch.uint8)
@@ -142,13 +145,13 @@ class TestLTXNodes(unittest.TestCase):
                 strength=0.8
             )
             
-            # Verify temporary file unlink was called
-            mock_unlink.assert_called_once()
+            # Verify temporary file unlink was called for the conditional image path
+            mock_unlink.assert_any_call(ANY)
             
             # Verify images list was supplied with strength
             called_args = mock_pipeline._run_inference.call_args[1]["images"]
             self.assertEqual(len(called_args), 1)
-            self.assertEqual(called_args[0].strength, 0.8)
+            self.assertEqual(called_args[0]["strength"], 0.8)
 
     @patch("folder_paths.get_output_directory")
     @patch("imageio.mimwrite")
