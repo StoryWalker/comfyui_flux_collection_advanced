@@ -28,7 +28,7 @@ A partir de la versión **0.4.0-sprint7**, el proyecto consolidó todos los pipe
 |---|---|---|
 | **Formato** | GGUF Q4_K_M + Folder HuggingFace (Gemma) | Igual que HEX |
 | **Audio** | ✅ Nativo (2 pasadas AV) | Igual que HEX |
-| **Velocidad** | Optimizada (`torch_compile`, prefetch=4, tiling agresivo) | Igual (delega a HEX) |
+| **Velocidad** | Optimizada (prefetch=4, tiling agresivo, inference_mode) | Igual (delega a HEX) |
 | **VRAM mínima** | 12-16 GB | Igual |
 | **Nodos** | 3 nodos unificados (Loader, Sampler, Saver) | 4 nodos separados (2 Loaders, Sampler, Saver) |
 | **Arquitectura** | Hexagonal pura (Domain → Application → Infrastructure) | Thin wrapper sobre HEX (backward compat) |
@@ -127,7 +127,6 @@ El backend `ltx_backend.py` incluye las siguientes optimizaciones automáticas:
 
 | Optimización | Qué hace | Ganancia estimada |
 |-------------|----------|-------------------|
-| **`torch_compile=True`** | Compila kernels CUDA del transformer. La primera ejecución es más lenta (compilación), las siguientes son mucho más rápidas. | **30-50%** |
 | **`streaming_prefetch_count=4`** | Precarga 4 capas del transformer en GPU desde el cache CPU. Reduce saltos de memoria. | **10-20%** |
 | **Tiling agresivo** (`tile_size=128`, `temporal=16`) | Reduce VRAM usada en VAE decode. Menos `cudaMalloc` overhead. | **15-25%** |
 | **`torch.set_float32_matmul_precision('high')`** | Activa TF32 en operaciones matriciales. Aprovechado por RTX 30xx/40xx/50xx. | **5-10%** |
@@ -137,7 +136,9 @@ El backend `ltx_backend.py` incluye las siguientes optimizaciones automáticas:
 
 > **Uso avanzado:** Si tienes suficiente VRAM y no necesitas liberar memoria entre generaciones, ejecuta ComfyUI con `LTX_DISABLE_EMPTY_CACHE=1` para ganar velocidad extra.
 
-**Mejora combinada esperada:** ~50-60% más rápido que la versión sin optimizar.
+**Mejora combinada esperada:** ~30-40% más rápido que la versión sin optimizar.
+
+> **Nota sobre `torch.compile`:** En Linux con Triton instalado, `torch_compile=True` podría dar un 30-50% extra. En Windows no está soportado por PyTorch/Triton, por lo que se omite.
 
 ---
 

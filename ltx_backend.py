@@ -461,7 +461,6 @@ class LTXFastVideoPipeline:
             loras=[],
             device=device,
             quantization=self._quantization,
-            torch_compile=True,
         )
 
     def _run_inference(self, prompt: str, seed: int, height: int, width: int, num_frames: int, frame_rate: float, images: list, tiling_config) -> tuple:
@@ -524,7 +523,6 @@ class LTXDistilledGGUFVideoPipeline:
             loras=[],
             device=device,
             quantization=self._quantization,
-            torch_compile=True,
         )
 
         self._patch_builders()
