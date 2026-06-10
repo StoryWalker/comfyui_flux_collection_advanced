@@ -54,20 +54,29 @@ def scan_ltx_files(comfyui_folder_type, extension_or_dir, default_file=None):
 def resolve_ltx_path(filename, comfyui_folder_type=None):
     """
     Resuelve la ruta completa de un modelo en ComfyUI.
+    Si el archivo no existe en disco, retorna la ruta donde se esperaba encontrar.
     """
     if not filename or filename == "None":
         return None
         
-    if os.path.isabs(filename) and os.path.exists(filename):
+    if os.path.isabs(filename):
         return filename
         
     if comfyui_folder_type:
         try:
             full_path = folder_paths.get_full_path(comfyui_folder_type, filename)
-            if full_path and os.path.exists(full_path):
+            if full_path:
                 return full_path
+                
+            # Si get_full_path retorna None (por no existir), construimos la ruta esperada
+            paths = folder_paths.get_folder_paths(comfyui_folder_type)
+            if paths:
+                return os.path.join(paths[0], filename)
         except Exception:
             pass
+            
+        # Fallback descriptivo si no hay paths registrados en folder_paths
+        return os.path.join("models", comfyui_folder_type or "", filename)
             
     return None
 
