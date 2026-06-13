@@ -23,9 +23,15 @@ class NVFP4NativeLoaderHex:
     """
     @classmethod
     def INPUT_TYPES(cls):
-        unet_list = NVFP4NativeAdapter.get_available_models()
-        clip_list = NVFP4ModelAdapter.get_available_files(["clip", "text_encoders"])
-        vae_list = NVFP4ModelAdapter.get_available_files(["vae"])
+        try:
+            from infrastructure.model_filter_adapter import get_filtered_filenames
+        except ImportError:
+            from .infrastructure.model_filter_adapter import get_filtered_filenames
+            
+        unet_list = get_filtered_filenames("NVFP4NativeLoaderHex", "unet_name", "diffusion_models")
+        clip_list1 = get_filtered_filenames("NVFP4NativeLoaderHex", "clip_name1", "clip")
+        clip_list2 = get_filtered_filenames("NVFP4NativeLoaderHex", "clip_name2", "clip")
+        vae_list = get_filtered_filenames("NVFP4NativeLoaderHex", "vae_name", "vae")
 
         return {
             "required": {
@@ -34,8 +40,8 @@ class NVFP4NativeLoaderHex:
                 "base_type": (["flux", "flux2"], {"default": "flux"}),
 
                 "section_clip": ("STRING", {"default": "CLIP ENCODERS"}),
-                "clip_name1": (clip_list, {"tooltip": "Primary CLIP"}),
-                "clip_name2": (["None"] + clip_list, {"tooltip": "Secondary CLIP (T5-XXL). None para Flux 2."}),
+                "clip_name1": (clip_list1, {"tooltip": "Primary CLIP"}),
+                "clip_name2": (["None"] + clip_list2, {"tooltip": "Secondary CLIP (T5-XXL). None para Flux 2."}),
                 "clip_type": (["flux", "flux2"], {"default": "flux"}),
 
                 "section_vae": ("STRING", {"default": "VAE"}),

@@ -39,15 +39,20 @@ class FluxModelAdapter:
     """
 
     @staticmethod
-    def get_available_files(keys: List[str]) -> List[str]:
+    def get_available_files(keys: List[str], node_class_name: str = None, field_name: str = None) -> List[str]:
         """
         Agrega listas de archivos de multiples categorias de folder_paths.
+        Aplica filtro de model_filters.json si se proveen node_class_name y field_name.
         Retorna lista ordenada y deduplicada.
         """
         files = []
         for key in keys:
             try:
-                files += folder_paths.get_filename_list(key)
+                if node_class_name and field_name:
+                    from .model_filter_adapter import get_filtered_filenames
+                    files += get_filtered_filenames(node_class_name, field_name, key)
+                else:
+                    files += folder_paths.get_filename_list(key)
             except Exception as e:
                 logger.warning(f"[Flux] No se pudo listar archivos para '{key}': {e}")
         return sorted(set(files))

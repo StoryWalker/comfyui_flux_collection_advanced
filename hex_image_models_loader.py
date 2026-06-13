@@ -18,9 +18,10 @@ class FluxGGUFLoaderHex:
 
     @classmethod
     def INPUT_TYPES(cls):
-        unet_list = FluxModelAdapter.get_available_files(["unet_gguf", "diffusion_models", "unet"])
-        clip_list = FluxModelAdapter.get_available_files(["clip_gguf", "text_encoders", "clip"])
-        vae_list  = FluxModelAdapter.get_available_files(["vae", "vae_approx"])
+        unet_list = FluxModelAdapter.get_available_files(["unet_gguf", "diffusion_models", "unet"], "FluxGGUFLoaderHex", "unet_name")
+        clip_list1 = FluxModelAdapter.get_available_files(["clip_gguf", "text_encoders", "clip"], "FluxGGUFLoaderHex", "clip_name1")
+        clip_list2 = FluxModelAdapter.get_available_files(["clip_gguf", "text_encoders", "clip"], "FluxGGUFLoaderHex", "clip_name2")
+        vae_list  = FluxModelAdapter.get_available_files(["vae", "vae_approx"], "FluxGGUFLoaderHex", "vae_name")
         vae_list += FluxModelAdapter.get_taesd_variant_names()
 
         return {
@@ -35,8 +36,8 @@ class FluxGGUFLoaderHex:
 
                 # --- SECTION: CLIP ENCODERS ---
                 "section_clip":      ("STRING", {"default": "CLIP ENCODERS"}),
-                "clip_name1":        (clip_list, {"tooltip": "Encoder primario (CLIP-L o combinado)"}),
-                "clip_name2":        (["None"] + clip_list, {"tooltip": "Encoder secundario (T5-XXL). 'None' para Flux 2."}),
+                "clip_name1":        (clip_list1, {"tooltip": "Encoder primario (CLIP-L o combinado)"}),
+                "clip_name2":        (["None"] + clip_list2, {"tooltip": "Encoder secundario (T5-XXL). 'None' para Flux 2."}),
                 "clip_type":         (["flux", "flux2", "sd3", "sdxl"], {"default": "flux"}),
 
                 # --- SECTION: VAE ---
