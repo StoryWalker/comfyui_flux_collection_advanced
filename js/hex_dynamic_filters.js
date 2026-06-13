@@ -75,8 +75,41 @@ app.registerExtension({
                     updateLogic();
                 };
 
+                // Auto-detectar base_type basado en unet_name
+                const unetWidget = node.widgets.find(w => w.name === "unet_name");
+                if (unetWidget) {
+                    const originalUnetCallback = unetWidget.callback;
+                    unetWidget.callback = function() {
+                        if (originalUnetCallback) originalUnetCallback.apply(this, arguments);
+                        
+                        const val = (unetWidget.value || "").toLowerCase();
+                        if (val.includes("flux2") || val.includes("flux-2")) {
+                            if (baseTypeWidget.value !== "flux2") {
+                                baseTypeWidget.value = "flux2";
+                                updateLogic();
+                            }
+                        } else if (val.includes("flux1") || val.includes("flux-1")) {
+                            if (baseTypeWidget.value !== "flux") {
+                                baseTypeWidget.value = "flux";
+                                updateLogic();
+                            }
+                        }
+                    };
+                }
+
                 // Ejecución inicial
-                setTimeout(updateLogic, 10);
+                setTimeout(() => {
+                    // Si el unet_name ya está poblado al crear el nodo, intentar inferir
+                    if (unetWidget && unetWidget.value) {
+                        const val = (unetWidget.value || "").toLowerCase();
+                        if ((val.includes("flux2") || val.includes("flux-2")) && baseTypeWidget.value !== "flux2") {
+                            baseTypeWidget.value = "flux2";
+                        } else if ((val.includes("flux1") || val.includes("flux-1")) && baseTypeWidget.value !== "flux") {
+                            baseTypeWidget.value = "flux";
+                        }
+                    }
+                    updateLogic();
+                }, 10);
             }
         }
     }
