@@ -12,10 +12,11 @@ def hex_node_doc(cls):
     
     if docstring:
         # Limpiar y estructurar el docstring
+        # Limpiar y estructurar el docstring
         lines = [line.strip() for line in docstring.split('\n') if line.strip()]
-        clean_doc = "\n".join(lines)
-        cls.DESCRIPTION = f"{clean_doc}\n\n{HEX_AI_FOOTER}"
+        clean_doc = "<br>".join(lines)
+        cls.DESCRIPTION = f"<div align='center'><b>[HEX] Arquitectura Avanzada</b></div><br>{clean_doc}<br><br><i>{HEX_AI_FOOTER}</i>"
     else:
-        cls.DESCRIPTION = f"[HEX] Nodo de la arquitectura Hexagonal.\n\n{HEX_AI_FOOTER}"
+        cls.DESCRIPTION = f"<div align='center'><b>[HEX] Arquitectura Avanzada</b></div><br>Nodo de la arquitectura Hexagonal.<br><br><i>{HEX_AI_FOOTER}</i>"
         
     return cls
