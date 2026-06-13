@@ -31,6 +31,11 @@ class FluxImagePreviewHex:
     FUNCTION     = "execute"
     OUTPUT_NODE  = True
     CATEGORY     = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] Image Preview — genera previews temporales con metadatos opcionales.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     def __init__(self):
         self.output_dir     = folder_paths.get_temp_directory() or \

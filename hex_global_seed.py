@@ -36,6 +36,11 @@ class GlobalSeedHex:
     OUTPUT_NODE   = True
     FUNCTION      = "execute"
     CATEGORY      = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] Global Seed.\n- control_after_generate (auto ComfyUI): controla el seed de este nodo.\n- mode: valor que se hereda a todos los FluxSamplerParametersHex al sincronizar.\n- auto_sync: cuando esta ON, sincroniza automaticamente al ejecutar.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

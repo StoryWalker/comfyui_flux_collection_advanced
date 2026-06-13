@@ -27,6 +27,11 @@ class WanVideoSaverHex:
     FUNCTION = "execute"
     OUTPUT_NODE = True
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] v2.6.0 Saver strictly aligned with JSON indices.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

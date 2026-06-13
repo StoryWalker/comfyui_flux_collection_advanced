@@ -29,6 +29,11 @@ class ImageLoaderHex:
     OUTPUT_NODE = True
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] v2.4.0 Universal Image Loader.\nSimplified widgets for stability.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

@@ -18,6 +18,11 @@ class FluxLoraDetailerHex:
 
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] LoRA Detailer — aplica un refinamiento con LoRA a una imagen escalada (Img2Img) usando optimizaciones como VAE Tiling.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
     RETURN_TYPES = ("IMAGE", "LATENT",)
     RETURN_NAMES = ("image", "latent",)
     OUTPUT_NODE = False

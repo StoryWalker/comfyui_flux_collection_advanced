@@ -22,6 +22,11 @@ class FluxVRAMLoaderBetaHex(nodes.ComfyNodeABC):
 
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] Flux VRAM Extreme Loader (BETA) — cargador especializado con optimizaciones extremas de VRAM y huella de arquitectura.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
     RETURN_TYPES = ("MODEL", "CLIP", "VAE",)
     RETURN_NAMES = ("model", "clip", "vae",)
     OUTPUT_NODE = False

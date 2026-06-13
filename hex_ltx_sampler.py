@@ -52,6 +52,11 @@ class LTXSamplerHex:
     RETURN_NAMES = ("images", "audio")
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex_ltx"
+    DESCRIPTION = (
+        "[HEX] LTX Video 2.3 Sampler.\nGenera video a partir de un pipeline LTX cargado, soportando texto puro (T2V)\no condicionamiento de imagen opcional (I2V).\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

@@ -44,6 +44,11 @@ class ImageLoadEncodeHex:
     RETURN_NAMES = ("image", "latent", "mask")
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/utils"
+    DESCRIPTION = (
+        "Combina la carga de imagen desde el disco con la decodificación VAE (si se provee un VAE).\nGenera simultáneamente la imagen y el latente.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, image, vae=None):

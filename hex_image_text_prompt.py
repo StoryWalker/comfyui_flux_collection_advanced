@@ -45,6 +45,11 @@ class FluxTextPromptHex:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION     = "execute"
     CATEGORY     = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] Flux Text Prompt.\nCodifica texto con hasta 4 estilos usando CLIP para modelos Flux.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

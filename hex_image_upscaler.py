@@ -27,6 +27,11 @@ class FluxImageUpscalerHex:
 
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] Image Upscaler — escala imágenes usando interpolación o modelos de súper resolución via Spandrel.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("image",)
     OUTPUT_NODE = False

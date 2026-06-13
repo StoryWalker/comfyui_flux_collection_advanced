@@ -59,6 +59,11 @@ class FluxSamplerParametersHex:
     RETURN_NAMES  = ("image", "latent")
     FUNCTION      = "execute"
     CATEGORY      = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] Flux Sampler Parameters.\nSampler Flux avanzado con VAE Tiling para alta resolucion\ny soporte de latente opcional para Img2Img/Refinement.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

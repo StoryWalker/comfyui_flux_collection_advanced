@@ -34,6 +34,11 @@ class LoopFetcherHex:
     RETURN_NAMES = ("IMAGE_OUT",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] v3.2.1 Robust Loop Fetcher.\nForces cache bypass to ensure sequential updates during batch runs.\nLas dimensiones de fallback se configuran aqui para eliminar valores hardcodeados\nen la capa de aplicacion.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     # IS_CHANGED fuerza a ComfyUI a re-ejecutar este nodo cada vez que se presiona Queue
     @classmethod

@@ -66,6 +66,11 @@ class LTXLoaderHex:
     RETURN_NAMES = ("ltx_pipeline",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex_ltx"
+    DESCRIPTION = (
+        "[HEX] LTX Video 2.3 Unified Loader.\nCarga pipelines LTX Fast (SafeTensors) o Distilled GGUF desde carpetas nativas de ComfyUI.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

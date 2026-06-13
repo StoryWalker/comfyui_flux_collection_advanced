@@ -34,6 +34,11 @@ class WanVideoSaverDevHex:
     FUNCTION = "execute"
     OUTPUT_NODE = True
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] Wan Video Saver (DEV):\nExportador de video alternativo con organización por carpetas y codificación directa via imageio.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

@@ -26,6 +26,11 @@ class PromptSequencerHex:
     RETURN_NAMES = ("CURRENT_PROMPT", "NEXT_INDEX",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] v3.2.0 Robust Prompt Sequencer.\nEnsures each queued job uses the NEXT index.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     # Forces ComfyUI to re-execute and update index on every Queue press
     @classmethod

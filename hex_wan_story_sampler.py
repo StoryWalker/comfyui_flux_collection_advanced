@@ -54,6 +54,11 @@ class WanStorySamplerHex:
     RETURN_NAMES = ("image", "last_image",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
+    DESCRIPTION = (
+        "[HEX] v3.1.0 Integrated Story Sampler for Wan 2.2.\nVisual headers restored in correct positions.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):
