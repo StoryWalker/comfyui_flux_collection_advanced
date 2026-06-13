@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import folder_paths
 from .domain.models import WanModelConfig
 from .application.loader_service import ModelLoaderService
@@ -7,6 +12,7 @@ from .infrastructure.error_adapter import hex_error_handler
 
 logger = logging.getLogger(__name__)
 
+@hex_node_doc
 class WanUnifiedLoaderHex:
     """
     [HEX] v3.1.0 Unified Wan Loader.
@@ -48,11 +54,6 @@ class WanUnifiedLoaderHex:
     RETURN_NAMES = ("MODEL_HIGH", "MODEL_LOW", "CLIP", "VAE", "CLIP_VISION",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] v3.1.0 Unified Wan Loader.\nRestored visual distribution with validation-safe headers.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

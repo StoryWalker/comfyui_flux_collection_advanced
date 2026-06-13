@@ -4,6 +4,11 @@ import os
 import random
 import json
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import numpy as np
 import torch
 from PIL import Image
@@ -26,6 +31,7 @@ except ImportError:
 _RANDOM_CHARS = "abcdefghijklmnopqrstuvwxyz"
 
 
+@hex_node_doc
 class FluxControlNetApplyPreviewHex:
     """
     [HEX] ControlNet Apply & Preview — aplica ControlNet (positive only) y muestra un preview 
@@ -36,11 +42,6 @@ class FluxControlNetApplyPreviewHex:
     RETURN_NAMES = ("positive",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] ControlNet Apply & Preview — aplica ControlNet (positive only) y muestra un preview\nde la imagen guía (hint image) directamente en el nodo.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
     OUTPUT_NODE = False
 
     _CONTROL_KEY = 'control'

@@ -1,6 +1,11 @@
 # Task-Source: T#12-GGUF
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 from .domain.models import FluxModelConfig
 from .application.image_loader_service import FluxLoaderService
 from .infrastructure.image_model_adapter import FluxModelAdapter
@@ -9,6 +14,7 @@ from .infrastructure.error_adapter import ErrorLoggingAdapter, hex_error_handler
 logger = logging.getLogger(__name__)
 
 
+@hex_node_doc
 class FluxGGUFLoaderHex:
     """
     [HEX] Flux GGUF Advanced Loader.
@@ -50,13 +56,6 @@ class FluxGGUFLoaderHex:
     RETURN_NAMES  = ("MODEL", "CLIP", "VAE")
     FUNCTION      = "execute"
     CATEGORY      = "flux_collection_advanced/hex"
-    DESCRIPTION   = (
-        "Carga el stack completo de Flux (UNET, CLIP, VAE) utilizando la arquitectura Hexagonal Avanzada.\n"
-        "Soporta auto-detección de modelos Flux.1 y Flux.2 para filtrar y sincronizar inteligentemente "
-        "los text encoders correctos. En Flux.2, el encoder secundario se omite automáticamente.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

@@ -1,6 +1,11 @@
 # Task-Source: T#27
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import os
 from typing import Any, Dict, Tuple, Optional, Type
 
@@ -22,16 +27,12 @@ except ImportError:
     logger.warning("Spandrel library not found. Upscaling with models will not work.")
 
 
+@hex_node_doc
 class FluxImageUpscalerHex:
     """[HEX] Image Upscaler — escala imágenes usando interpolación o modelos de súper resolución via Spandrel."""
 
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] Image Upscaler — escala imágenes usando interpolación o modelos de súper resolución via Spandrel.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("image",)
     OUTPUT_NODE = False

@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 
 import comfy.samplers
 import nodes
@@ -12,6 +17,7 @@ from .infrastructure.error_adapter import hex_error_handler
 logger = logging.getLogger(__name__)
 
 
+@hex_node_doc
 class FluxSamplerParametersHex:
     """
     [HEX] Flux Sampler Parameters.
@@ -59,11 +65,6 @@ class FluxSamplerParametersHex:
     RETURN_NAMES  = ("image", "latent")
     FUNCTION      = "execute"
     CATEGORY      = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] Flux Sampler Parameters.\nSampler Flux avanzado con VAE Tiling para alta resolucion\ny soporte de latente opcional para Img2Img/Refinement.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

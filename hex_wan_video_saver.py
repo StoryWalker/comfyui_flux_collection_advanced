@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 from .domain.models import VideoExportManifest
 from .application.export_service import ExportVideoService
 from .infrastructure.error_adapter import hex_error_handler
 
 logger = logging.getLogger(__name__)
 
+@hex_node_doc
 class WanVideoSaverHex:
     """
     [HEX] v2.6.0 Saver strictly aligned with JSON indices.
@@ -27,11 +33,6 @@ class WanVideoSaverHex:
     FUNCTION = "execute"
     OUTPUT_NODE = True
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] v2.6.0 Saver strictly aligned with JSON indices.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

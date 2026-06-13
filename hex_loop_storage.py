@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 from .infrastructure.persistence_adapter import FilePersistenceAdapter
 from .infrastructure.error_adapter import hex_error_handler
 
 logger = logging.getLogger(__name__)
 
+@hex_node_doc
 class LoopStorageHex:
     """
     [HEX] v3.0.0 Loop Storage (The Sink).
@@ -23,11 +29,6 @@ class LoopStorageHex:
     FUNCTION = "execute"
     OUTPUT_NODE = True
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] v3.0.0 Loop Storage (The Sink).\nReceives the last frame from the sampler and saves it for the next run.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

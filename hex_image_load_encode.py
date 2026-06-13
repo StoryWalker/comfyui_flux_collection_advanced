@@ -4,6 +4,11 @@
 Nodo que combina Load Image y VAE Encode en un solo paso para agilizar workflows de Img2Img.
 """
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import os
 import numpy as np
 import torch
@@ -18,6 +23,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@hex_node_doc
 class ImageLoadEncodeHex:
     """
     Combina la carga de imagen desde el disco con la decodificación VAE (si se provee un VAE).
@@ -44,11 +50,6 @@ class ImageLoadEncodeHex:
     RETURN_NAMES = ("image", "latent", "mask")
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/utils"
-    DESCRIPTION = (
-        "Combina la carga de imagen desde el disco con la decodificación VAE (si se provee un VAE).\nGenera simultáneamente la imagen y el latente.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, image, vae=None):

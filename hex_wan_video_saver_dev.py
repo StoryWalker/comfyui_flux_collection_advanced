@@ -4,6 +4,11 @@ import os
 import torch
 import numpy as np
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import folder_paths
 import datetime
 from .infrastructure.error_adapter import hex_error_handler
@@ -11,6 +16,7 @@ from .infrastructure.error_adapter import hex_error_handler
 logger = logging.getLogger(__name__)
 
 
+@hex_node_doc
 class WanVideoSaverDevHex:
     """
     [HEX] Wan Video Saver (DEV):
@@ -34,11 +40,6 @@ class WanVideoSaverDevHex:
     FUNCTION = "execute"
     OUTPUT_NODE = True
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] Wan Video Saver (DEV):\nExportador de video alternativo con organización por carpetas y codificación directa via imageio.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

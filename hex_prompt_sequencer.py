@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import time
 from .application.prompt_service import PromptSequencerService
 from .infrastructure.error_adapter import hex_error_handler
 
 logger = logging.getLogger(__name__)
 
+@hex_node_doc
 class PromptSequencerHex:
     """
     [HEX] v3.2.0 Robust Prompt Sequencer.
@@ -26,11 +32,6 @@ class PromptSequencerHex:
     RETURN_NAMES = ("CURRENT_PROMPT", "NEXT_INDEX",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] v3.2.0 Robust Prompt Sequencer.\nEnsures each queued job uses the NEXT index.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     # Forces ComfyUI to re-execute and update index on every Queue press
     @classmethod

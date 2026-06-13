@@ -5,6 +5,11 @@ Flux VRAM Extreme Loader (BETA)
 Migrado a arquitectura hexagonal.
 """
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import torch
 import comfy.sd
 import comfy.utils
@@ -17,16 +22,12 @@ from .infrastructure.error_adapter import hex_error_handler
 logger = logging.getLogger(__name__)
 
 
+@hex_node_doc
 class FluxVRAMLoaderBetaHex(nodes.ComfyNodeABC):
     """[HEX] Flux VRAM Extreme Loader (BETA) — cargador especializado con optimizaciones extremas de VRAM y huella de arquitectura."""
 
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] Flux VRAM Extreme Loader (BETA) — cargador especializado con optimizaciones extremas de VRAM y huella de arquitectura.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
     RETURN_TYPES = ("MODEL", "CLIP", "VAE",)
     RETURN_NAMES = ("model", "clip", "vae",)
     OUTPUT_NODE = False

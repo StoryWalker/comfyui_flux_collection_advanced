@@ -1,6 +1,11 @@
 # Task-Source: T#27
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import torch
 import folder_paths
 import comfy.utils
@@ -13,16 +18,12 @@ from .infrastructure.error_adapter import hex_error_handler
 logger = logging.getLogger(__name__)
 
 
+@hex_node_doc
 class FluxLoraDetailerHex:
     """[HEX] LoRA Detailer — aplica un refinamiento con LoRA a una imagen escalada (Img2Img) usando optimizaciones como VAE Tiling."""
 
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] LoRA Detailer — aplica un refinamiento con LoRA a una imagen escalada (Img2Img) usando optimizaciones como VAE Tiling.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
     RETURN_TYPES = ("IMAGE", "LATENT",)
     RETURN_NAMES = ("image", "latent",)
     OUTPUT_NODE = False

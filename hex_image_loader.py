@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import torch
 from .domain.models import ImageLoadConfig
 from .application.loader_service import ImageLoaderService
@@ -8,6 +13,7 @@ from .infrastructure.error_adapter import hex_error_handler
 
 logger = logging.getLogger(__name__)
 
+@hex_node_doc
 class ImageLoaderHex:
     """
     [HEX] v2.4.0 Universal Image Loader.
@@ -29,11 +35,6 @@ class ImageLoaderHex:
     OUTPUT_NODE = True
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] v2.4.0 Universal Image Loader.\nSimplified widgets for stability.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

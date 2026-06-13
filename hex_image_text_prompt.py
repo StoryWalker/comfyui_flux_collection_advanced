@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 import os
 
 from comfy.comfy_types import IO
@@ -14,6 +19,7 @@ logger = logging.getLogger(__name__)
 _STYLES_PATH = os.path.join(os.path.dirname(__file__), "styles.csv")
 
 
+@hex_node_doc
 class FluxTextPromptHex:
     """
     [HEX] Flux Text Prompt.
@@ -45,11 +51,6 @@ class FluxTextPromptHex:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION     = "execute"
     CATEGORY     = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] Flux Text Prompt.\nCodifica texto con hasta 4 estilos usando CLIP para modelos Flux.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):

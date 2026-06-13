@@ -1,11 +1,17 @@
 # Task-Source: T#27
 # -*- coding: utf-8 -*-
 import logging
+try:
+    from infrastructure.doc_adapter import hex_node_doc
+except ImportError:
+    from .infrastructure.doc_adapter import hex_node_doc
+
 from .infrastructure.error_adapter import hex_error_handler
 
 logger = logging.getLogger(__name__)
 
 
+@hex_node_doc
 class WanIndexBridgeHex:
     """
     [HEX] Wan Index Bridge:
@@ -25,11 +31,6 @@ class WanIndexBridgeHex:
     RETURN_NAMES = ("index_out",)
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/hex"
-    DESCRIPTION = (
-        "[HEX] Wan Index Bridge:\nUn puente simple para permitir que el Secuenciador devuelva su índice a sí mismo,\nevitando la restricción de bucle directo de ComfyUI.\n\n"
-        "This documentation was AI-generated. If you find any errors or have suggestions for "
-        "improvement, please feel free to contribute! Edit on GitHub."
-    )
 
     @hex_error_handler
     def execute(self, **kwargs):
