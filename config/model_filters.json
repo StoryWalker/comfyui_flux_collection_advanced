@@ -1,0 +1,32 @@
+{
+  "FluxGGUFLoaderHex": {
+    "unet_name": {
+      "include_extensions": [".gguf", ".safetensors"],
+      "exclude_keywords": ["nvfp4", "fp4", "e2m1", "ltx", "wan"]
+    },
+    "clip_name1": {
+      "include_keywords": ["clip", "l14", "mistral"]
+    },
+    "clip_name2": {
+      "include_keywords": ["t5"]
+    },
+    "vae_name": {
+      "include_keywords": ["flux", "ae"]
+    }
+  },
+  "NVFP4NativeLoaderHex": {
+    "unet_name": {
+      "include_extensions": [".safetensors"],
+      "include_keywords": ["nvfp4", "fp4", "e2m1"]
+    },
+    "clip_name1": {
+      "include_keywords": ["clip", "l14", "mistral"]
+    },
+    "clip_name2": {
+      "include_keywords": ["t5"]
+    },
+    "vae_name": {
+      "include_keywords": ["flux", "ae"]
+    }
+  }
+}

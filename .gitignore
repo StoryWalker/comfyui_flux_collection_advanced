@@ -66,3 +66,4 @@ instructions_to_commits.md
 !important.txt
 !.gitignore
 !__init__.py
+!config/model_filters.json
