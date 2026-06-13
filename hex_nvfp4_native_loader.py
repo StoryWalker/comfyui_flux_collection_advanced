@@ -53,6 +53,13 @@ class NVFP4NativeLoaderHex:
     RETURN_NAMES = ("model", "clip", "vae")
     FUNCTION = "execute"
     CATEGORY = "flux_collection_advanced/nvfp4"
+    DESCRIPTION = (
+        "Carga nativa de checkpoints NVFP4 de NVIDIA interactuando directamente con comfy_kitchen.\n"
+        "Requiere hardware soportado (GPUs con soporte E2M1, como Blackwell o emulación). "
+        "Al igual que GGUF, ajusta automáticamente los encoders de CLIP dependiendo de la base elegida.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):

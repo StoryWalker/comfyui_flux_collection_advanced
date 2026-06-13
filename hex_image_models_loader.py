@@ -50,6 +50,13 @@ class FluxGGUFLoaderHex:
     RETURN_NAMES  = ("MODEL", "CLIP", "VAE")
     FUNCTION      = "execute"
     CATEGORY      = "flux_collection_advanced/hex"
+    DESCRIPTION   = (
+        "Carga el stack completo de Flux (UNET, CLIP, VAE) utilizando la arquitectura Hexagonal Avanzada.\n"
+        "Soporta auto-detección de modelos Flux.1 y Flux.2 para filtrar y sincronizar inteligentemente "
+        "los text encoders correctos. En Flux.2, el encoder secundario se omite automáticamente.\n\n"
+        "This documentation was AI-generated. If you find any errors or have suggestions for "
+        "improvement, please feel free to contribute! Edit on GitHub."
+    )
 
     @hex_error_handler
     def execute(self, **kwargs):
