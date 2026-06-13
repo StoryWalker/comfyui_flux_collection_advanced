@@ -1,16 +1,18 @@
-# Flux Collection Advanced (v0.4.0)
+# Flux Collection Advanced (v0.4.1)
 
-A powerful collection of ComfyUI nodes for **Flux.1** and **Flux.2** architectures, with a fully hexagonal architecture, GGUF support, Wan 2.2 video storytelling, LTX Video 2.3 generation, and global seed control.
+A powerful collection of ComfyUI nodes for **Flux.1** and **Flux.2** architectures, with a fully hexagonal architecture, native NVFP4 support, FLUX Kontext semantic injection, Wan 2.2 video storytelling, LTX Video generation, and global seed control.
 
 ---
 
-## Nodes — Flux Image Suite [HEX]
+## Nodes — Flux Image Suite [HEX] & [NVFP4]
 
 | Node | Description |
 |------|-------------|
+| **[NVFP4] Native Loader Hex** | Native fast loader for E2M1 packaged FLUX models (RTX 50xx Blackwell optimized). |
 | **[HEX] Flux GGUF Loader** | Loads full Flux stack: UNET + CLIP (single/dual) + VAE. GGUF and Safetensors. TAESD support. |
+| **[HEX] Image Load & Encode** | Image loading with automatic VAE encoding to Latent format. |
 | **[HEX] Flux Text Prompt** | Text encoding with up to 4 style presets and configurable guidance scale. |
-| **[HEX] Flux Sampler Parameters** | Single-stage sampler with VAE tiling for high-res and optional Img2Img latent input. |
+| **[HEX] Flux Sampler Parameters** | Single-stage sampler with Img2Img (`latent_opt`) and FLUX Kontext/Redux semantic injection (`reference_opt`). |
 | **[HEX] Image Comparison** | Side-by-side interactive hover comparison of two images. |
 | **[HEX] Global Seed** | Global seed control — synchronizes seed and `control_after_generate` to all Flux Sampler nodes in the workflow without cables. |
 
@@ -39,11 +41,7 @@ A powerful collection of ComfyUI nodes for **Flux.1** and **Flux.2** architectur
 >
 > See [`ltx_models.md`](ltx_models.md) for complete model requirements, connection diagrams, and hardware-specific configurations.
 
-## Nodes — Legacy (pending_refactor)
 
-ControlNet Loader/Apply/Preview, Image Preview, Image Upscaler, LoRA Detailer, VRAM Loader Beta.
-
----
 
 ## Installation
 
@@ -59,6 +57,12 @@ ControlNet Loader/Apply/Preview, Image Preview, Image Upscaler, LoRA Detailer, V
 ---
 
 ## Changelog
+
+### v0.4.1-sprint8 — 2026-06-13
+- **[NVFP4] Native Loader**: Introduced `NVFP4NativeLoaderHex` with runtime monkey-patching of `comfy.utils.load_torch_file` to support E2M1 packaged models natively on ComfyUI without modifying core files.
+- **[Kontext] Semantic Injection**: `[HEX] Flux Sampler Parameters` now supports direct injection of reference latents via `reference_opt` (applies `ReferenceLatent` conditioning) for FLUX Kontext/Redux workflows.
+- **[UI] Preview Optimization**: Switched `FluxImagePreviewHex` to JPEG compression (85%) to prevent Event Loop blockages when previewing massive 4K/2K images in the ComfyUI frontend.
+- **[CLEANUP]**: Removed all legacy `pending_refactor` directories and untracked old references from git.
 
 ### v0.4.0-sprint7 — 2026-06-10
 - **[LTX] Performance Optimizations**: Backend `ltx_backend.py` upgraded with `torch_compile`, `streaming_prefetch_count=4`, aggressive tiling, and TF32 matmul precision. **~50-60% speed improvement** on RTX 5080 16GB.
@@ -88,8 +92,7 @@ comfyui_flux_collection_advanced/
 ├── domain/            ← Pure domain entities (dataclasses, no side effects)
 ├── application/       ← Orchestration services
 ├── infrastructure/    ← External adapters (ComfyUI, torch, I/O)
-├── hex_*.py           ← HEX entry point nodes
-├── pending_refactor/  ← Legacy nodes pending migration
+├── hex_*.py           ← HEX and NVFP4 entry point nodes
 └── js/                ← Frontend extensions
 ```
 
