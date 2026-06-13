@@ -73,23 +73,15 @@ class FluxImagePreviewHex:
         results = []
 
         for i, img_tensor in enumerate(images):
-            arr = np.clip(255.0 * img_tensor.cpu().numpy(), 0, 255).astype(np.uint8)
+            # Optimización matemática rápida para evitar bloqueos
+            arr = (img_tensor.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
             pil = Image.fromarray(arr)
 
-            meta = None
-            if not metadata_disabled:
-                meta = PngInfo()
-                if prompt is not None:
-                    meta.add_text("prompt", json.dumps(prompt))
-                if isinstance(extra_pnginfo, dict):
-                    for k, v in extra_pnginfo.items():
-                        try:
-                            meta.add_text(str(k), json.dumps(v))
-                        except (TypeError, ValueError) as e:
-                            logger.warning(f"[HEX] Preview: no se pudo serializar metadato '{k}': {e}")
-
-            file = f"{filename.replace('%batch_num%', str(i))}_{counter:05}_.png"
-            pil.save(os.path.join(full_folder, file), pnginfo=meta, compress_level=self.compress_level)
+            # Las previsualizaciones se guardan en JPG al 85% para que pesen 1MB en lugar de 48MB (PNG 4K)
+            # Esto evita que el frontend y el navegador se congelen intentando renderizar y redimensionar el nodo.
+            file = f"{filename.replace('%batch_num%', str(i))}_{counter:05}_.jpg"
+            pil.save(os.path.join(full_folder, file), format="JPEG", quality=85)
+            
             results.append({"filename": file, "subfolder": subfolder, "type": self.type})
             counter += 1
 

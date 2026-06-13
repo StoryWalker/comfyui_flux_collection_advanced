@@ -41,7 +41,8 @@ class FluxSamplerParametersHex:
                                            "tooltip": "CFG scale (1.0 es el estandar para Flux)."}),
                 "sampler_name": (comfy.samplers.KSampler.SAMPLERS,),
                 "scheduler":    (comfy.samplers.KSampler.SCHEDULERS,),
-                "denoise":      ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "denoise":      ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01, 
+                                           "tooltip": "Mantener en 1.0 para Txt2Img y Kontext. Bajar (ej. 0.7) solo al usar latent_opt (Img2Img clásico)."}),
 
                 # --- SECTION: OPTIONS ---
                 "section_options": ("STRING", {"default": "OPTIONS"}),
@@ -49,7 +50,8 @@ class FluxSamplerParametersHex:
                                 "tooltip": "Tiled VAE decoding para 2K/4K sin OOM."}),
             },
             "optional": {
-                "latent_opt": ("LATENT", {"tooltip": "Latente opcional para modo Img2Img/Refinement."}),
+                "latent_opt": ("LATENT", {"tooltip": "Latente opcional para modo Img2Img tradicional."}),
+                "reference_opt": ("LATENT", {"tooltip": "Latente de referencia para Kontext/Redux (se inyecta como condicionamiento)."}),
             },
         }
 
@@ -76,9 +78,10 @@ class FluxSamplerParametersHex:
         service = FluxSamplerService(adapter=FluxSamplerAdapter())
         image, latent = service.generate(
             config,
-            model      = kwargs.get("model"),
-            positive   = kwargs.get("positive"),
-            vae        = kwargs.get("vae"),
-            latent_opt = kwargs.get("latent_opt"),
+            model         = kwargs.get("model"),
+            positive      = kwargs.get("positive"),
+            vae           = kwargs.get("vae"),
+            latent_opt    = kwargs.get("latent_opt"),
+            reference_opt = kwargs.get("reference_opt"),
         )
         return (image, latent)

@@ -24,10 +24,8 @@ export const HEX_NODES = [
 	"FluxVRAMLoaderBetaHex",
 	"WanIndexBridgeHex",
 	"WanVideoSaverDevHex",
-	// NVFP4 experimental nodes
-	"NVFP4ImageLoader",
-	"NVFP4ImageSampler",
-	"NVFP4ImagePreview",
+	"NVFP4NativeLoaderHex",
+	"ImageLoadEncodeHex",
 ];
 
 // Definición centralizada de settings — usada al registrar y al restaurar desde el nodo

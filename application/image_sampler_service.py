@@ -37,6 +37,7 @@ class FluxSamplerService:
         positive: Any,
         vae: Any,
         latent_opt: Optional[Dict[str, Any]] = None,
+        reference_opt: Optional[Dict[str, Any]] = None,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """
         Ejecuta el pipeline completo.
@@ -46,6 +47,19 @@ class FluxSamplerService:
         """
         logger.info(f"[Flux] Iniciando pipeline: {config.width}x{config.height}, "
                     f"steps={config.steps}, seed={config.seed}")
+
+        # 0. Inyectar referencia semántica (Kontext/Redux) si existe
+        if reference_opt is not None:
+            logger.info("[Flux] Inyectando 'reference_opt' en el condicionamiento (Modo Kontext).")
+            new_positive = []
+            for t in positive:
+                n = [t[0], t[1].copy()]
+                if "reference_latents" in n[1]:
+                    n[1]["reference_latents"] = n[1]["reference_latents"] + [reference_opt["samples"]]
+                else:
+                    n[1]["reference_latents"] = [reference_opt["samples"]]
+                new_positive.append(n)
+            positive = new_positive
 
         # 1. Latente
         if latent_opt is not None:

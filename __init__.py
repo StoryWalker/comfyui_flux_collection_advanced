@@ -37,6 +37,7 @@ def load_node(module_name, class_name, mapping_name, display_name):
 load_node("hex_wan_unified_loader", "WanUnifiedLoaderHex", "WanUnifiedLoaderHex", "[HEX] Wan Unified Loader")
 load_node("hex_wan_story_sampler", "WanStorySamplerHex", "WanStorySamplerHex", "[HEX] Wan Story Sampler")
 load_node("hex_image_loader", "ImageLoaderHex", "ImageLoaderHex", "[HEX] Image Loader")
+load_node("hex_image_load_encode", "ImageLoadEncodeHex", "ImageLoadEncodeHex", "[HEX] Image Load & Encode")
 load_node("hex_loop_storage", "LoopStorageHex", "LoopStorageHex", "[HEX] Loop Storage")
 load_node("hex_loop_fetcher", "LoopFetcherHex", "LoopFetcherHex", "[HEX] Loop Fetcher")
 load_node("hex_prompt_sequencer", "PromptSequencerHex", "PromptSequencerHex", "[HEX] Prompt Sequencer")
@@ -66,10 +67,8 @@ load_node("ltx_nodes", "LTXFastPipelineLoader", "LTXFastPipelineLoader", "[LTX] 
 load_node("ltx_nodes", "LTXVideoSampler", "LTXVideoSampler", "[LTX] Video Sampler")
 load_node("ltx_nodes", "LTXVideoSaver", "LTXVideoSaver", "[LTX] Video Saver")
 
-# Registro de nodos NVFP4 experimentales (validación sin romper flujos existentes)
-load_node("nvfp4_image_loader", "NVFP4ImageLoader", "NVFP4ImageLoader", "[NVFP4] Image Loader")
-load_node("nvfp4_image_sampler", "NVFP4ImageSampler", "NVFP4ImageSampler", "[NVFP4] Image Sampler")
-load_node("nvfp4_image_preview", "NVFP4ImagePreview", "NVFP4ImagePreview", "[NVFP4] Image Preview")
+# Registro de nodos NVFP4
+load_node("hex_nvfp4_native_loader", "NVFP4NativeLoaderHex", "NVFP4NativeLoaderHex", "[NVFP4] Native Loader Hex")
 
 # Registro de nodos de apoyo y DEV (solo con COMFYUI_DEV_NODES=1)
 if os.getenv("COMFYUI_DEV_NODES", "0") == "1":
