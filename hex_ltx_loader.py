@@ -80,14 +80,12 @@ class LTXLoaderHex:
 
         if pipeline_type == "fast":
             checkpoint = kwargs.get("checkpoint_fast")
-            vae_video = ""
-            audio_vae = ""
-            connector = ""
         else:
             checkpoint = kwargs.get("checkpoint_gguf")
-            vae_video = kwargs.get("vae_video", "")
-            audio_vae = kwargs.get("audio_vae", "")
-            connector = kwargs.get("connector", "")
+
+        vae_video = kwargs.get("vae_video", "")
+        audio_vae = kwargs.get("audio_vae", "")
+        connector = kwargs.get("connector", "")
 
         gemma_directory = kwargs.get("gemma_directory")
         spatial_upscaler = kwargs.get("spatial_upscaler")
@@ -100,6 +98,8 @@ class LTXLoaderHex:
 
         gemma_path = resolve_ltx_path(gemma_directory, self._GEMMA_CATEGORIES)
         upscaler_path = resolve_ltx_path(spatial_upscaler, self._UPSCALER_CATEGORIES)
+        
+        # Ahora todos los pipelines pueden cargar VAEs explícitos
         vae_video_path = resolve_ltx_path(vae_video, self._VAE_CATEGORIES) if vae_video and vae_video != "None" else ""
         audio_vae_path = resolve_ltx_path(audio_vae, self._VAE_CATEGORIES) if audio_vae and audio_vae != "None" else ""
         connector_path = resolve_ltx_path(connector, self._CONNECTOR_CATEGORIES) if connector and connector != "None" else ""
@@ -110,12 +110,11 @@ class LTXLoaderHex:
             ("gemma_directory", gemma_path),
             ("spatial_upscaler", upscaler_path),
         ]
-        if pipeline_type == "distilled_gguf":
-            required.extend([
-                ("vae_video", vae_video_path),
-                ("audio_vae", audio_vae_path),
-                ("connector", connector_path),
-            ])
+        
+        # Requerir VAE y Conectores explícitos si se seleccionaron
+        if vae_video_path: required.append(("vae_video", vae_video_path))
+        if audio_vae_path: required.append(("audio_vae", audio_vae_path))
+        if connector_path: required.append(("connector", connector_path))
 
         missing_resources = []
         for name, p in required:

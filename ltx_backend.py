@@ -441,10 +441,10 @@ class LTXFastVideoPipeline:
     pipeline_kind = "fast"
 
     @staticmethod
-    def create(checkpoint_path: str, gemma_root: str | None, upsampler_path: str, device: torch.device) -> "LTXFastVideoPipeline":
-        return LTXFastVideoPipeline(checkpoint_path, gemma_root, upsampler_path, device)
+    def create(checkpoint_path: str, gemma_root: str | None, upsampler_path: str, device: torch.device, *, vae_video_path: str = "", audio_vae_path: str = "", connector_path: str = "") -> "LTXFastVideoPipeline":
+        return LTXFastVideoPipeline(checkpoint_path, gemma_root, upsampler_path, device, vae_video_path=vae_video_path, audio_vae_path=audio_vae_path, connector_path=connector_path)
 
-    def __init__(self, checkpoint_path: str, gemma_root: str | None, upsampler_path: str, device: torch.device) -> None:
+    def __init__(self, checkpoint_path: str, gemma_root: str | None, upsampler_path: str, device: torch.device, *, vae_video_path: str = "", audio_vae_path: str = "", connector_path: str = "") -> None:
         from ltx_core.quantization import QuantizationPolicy
         from ltx_pipelines.distilled import DistilledPipeline
 
@@ -452,6 +452,9 @@ class LTXFastVideoPipeline:
         self._gemma_root = gemma_root
         self._upsampler_path = upsampler_path
         self._device = device
+        self._vae_video_path = vae_video_path
+        self._audio_vae_path = audio_vae_path
+        self._connector_path = connector_path
         self._quantization = QuantizationPolicy.fp8_cast() if device_supports_fp8(device) else None
 
         self.pipeline = DistilledPipeline(
@@ -462,6 +465,32 @@ class LTXFastVideoPipeline:
             device=device,
             quantization=self._quantization,
         )
+        
+        # Parchear constructores si se pasaron rutas (igual que en GGUF)
+        if any([vae_video_path, audio_vae_path, connector_path]):
+            self._patch_builders()
+
+    def _patch_builders(self) -> None:
+        loader = GGUFVirtualBundledLoader(
+            checkpoint_path=self._checkpoint_path,
+            vae_video_path=self._vae_video_path,
+            audio_vae_path=self._audio_vae_path,
+            connector_path=self._connector_path,
+        )
+
+        p = self.pipeline
+        p.stage._transformer_builder = dataclasses.replace(p.stage._transformer_builder, model_loader=loader)
+        p.image_conditioner._encoder_builder = dataclasses.replace(p.image_conditioner._encoder_builder, model_loader=loader)
+        p.upsampler._encoder_builder = dataclasses.replace(p.upsampler._encoder_builder, model_loader=loader)
+        p.video_decoder._decoder_builder = dataclasses.replace(p.video_decoder._decoder_builder, model_loader=loader)
+        
+        if hasattr(p, "audio_decoder") and p.audio_decoder:
+            p.audio_decoder._decoder_builder = dataclasses.replace(p.audio_decoder._decoder_builder, model_loader=loader)
+            p.audio_decoder._vocoder_builder = dataclasses.replace(p.audio_decoder._vocoder_builder, model_loader=loader)
+            
+        emb_builder = getattr(p.prompt_encoder, "_embeddings_processor_builder", None)
+        if emb_builder is not None:
+            p.prompt_encoder._embeddings_processor_builder = dataclasses.replace(emb_builder, model_loader=loader)
 
     def _run_inference(self, prompt: str, seed: int, height: int, width: int, num_frames: int, frame_rate: float, images: list, tiling_config) -> tuple:
         from ltx_pipelines.utils.args import ImageConditioningInput as _LtxImageInput

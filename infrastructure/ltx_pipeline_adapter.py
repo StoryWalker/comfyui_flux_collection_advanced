@@ -66,6 +66,9 @@ class LTXPipelineAdapter:
                 gemma_root=config.gemma_root,
                 upsampler_path=config.upsampler_path,
                 device=torch_device,
+                vae_video_path=config.vae_video_path,
+                audio_vae_path=config.audio_vae_path,
+                connector_path=config.connector_path,
             )
 
         return pipeline
