@@ -339,7 +339,7 @@ def default_tiling_config():
     from ltx_core.model.video_vae.tiling import TilingConfig, SpatialTilingConfig, TemporalTilingConfig
     # Tiling agresivo para reducir presión de VRAM en RTX 5080 16GB
     return TilingConfig(
-        spatial_config=SpatialTilingConfig(tile_size_in_pixels=512, tile_overlap_in_pixels=64),
+        spatial_config=SpatialTilingConfig(tile_size_in_pixels=128, tile_overlap_in_pixels=32),
         temporal_config=TemporalTilingConfig(tile_size_in_frames=16, tile_overlap_in_frames=8),
     )
 
@@ -555,55 +555,41 @@ class LTXDistilledGGUFVideoPipeline:
         from ltx_pipelines.utils.helpers import cleanup_memory
         from contextlib import contextmanager
 
-        self._transformer_cache = None
+        self._fp8_cache = None
         p = self.pipeline
         stage = p.stage
 
         if not hasattr(stage, "_transformer_ctx"):
             raise AttributeError("DiffusionStage has no attribute '_transformer_ctx'. GGUF caching is not compatible with this version of ltx-pipelines.")
 
-        def _ensure_cache(device: torch.device, **kwargs: object) -> None:
-            if self._transformer_cache is not None:
-                # Mover al dispositivo solicitado si es necesario
-                if next(self._transformer_cache.parameters()).device != device:
-                    self._transformer_cache.to(device)
+        def _ensure_cache(**kwargs: object) -> None:
+            if self._fp8_cache is not None:
+                logger.info("FP8 distilled: reusing CPU-resident cache")
                 return
-            
-            logger.info(f"GGUF transformer: construyendo cache directamente en {device} para máximo rendimiento")
-            transformer = stage._build_transformer(device=device, **kwargs)
+            transformer = stage._build_transformer(device=torch.device("cpu"), **kwargs)
             transformer.eval()
-            self._transformer_cache = transformer
+            self._fp8_cache = transformer
+            logger.info("FP8 distilled: transformer built and cached in CPU RAM")
 
         @contextmanager
         def _transformer_ctx(streaming_prefetch_count: int | None, **kwargs: object):
-            # Dynamic VRAM check ONLY for the Transformer
-            vram_gb = torch.cuda.get_device_properties(stage._device).total_memory / (1024**3) if getattr(stage, "_device", torch.device("cpu")).type == "cuda" else 0
-
-            if vram_gb >= 15.0:
-                _ensure_cache(device=stage._device, **kwargs)
-                logger.info("FP8 distilled: Inferencia directa en VRAM (Streaming deshabilitado dinámicamente. ¡Súper rápido!)")
-                try:
-                    yield self._transformer_cache
-                finally:
-                    pass
-            else:
-                # Streaming tradicional (lento pero ahorra VRAM)
-                _ensure_cache(device=torch.device("cpu"), **kwargs)
-                prefetch = streaming_prefetch_count if streaming_prefetch_count is not None and streaming_prefetch_count > 0 else 2
-                logger.info(f"FP8 distilled: Streaming desde CPU RAM (Lento, prefetch={prefetch})")
-                wrapped = LayerStreamingWrapper(
-                    self._transformer_cache,
-                    layers_attr="velocity_model.transformer_blocks",
-                    target_device=stage._device,
-                    prefetch_count=prefetch,
-                )
-                try:
-                    yield wrapped
-                finally:
-                    wrapped.teardown()
-                    if os.environ.get("LTX_DISABLE_EMPTY_CACHE", "0") != "1":
-                        torch.cuda.empty_cache()
-                    cleanup_memory()
+            _ensure_cache(**kwargs)
+            assert self._fp8_cache is not None
+            prefetch = streaming_prefetch_count if streaming_prefetch_count is not None else 2
+            logger.info(f"FP8 distilled: streaming from CPU RAM (prefetch={prefetch})")
+            wrapped = LayerStreamingWrapper(
+                self._fp8_cache,
+                layers_attr="velocity_model.transformer_blocks",
+                target_device=stage._device,
+                prefetch_count=prefetch,
+            )
+            try:
+                yield wrapped
+            finally:
+                wrapped.teardown()
+                if os.environ.get("LTX_DISABLE_EMPTY_CACHE", "0") != "1":
+                    torch.cuda.empty_cache()
+                cleanup_memory()
 
         setattr(stage, "_transformer_ctx", _transformer_ctx)
         logger.debug("GGUF transformer cache installed on DiffusionStage._transformer_ctx")
