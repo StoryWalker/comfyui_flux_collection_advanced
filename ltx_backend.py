@@ -339,7 +339,7 @@ def default_tiling_config():
     from ltx_core.model.video_vae.tiling import TilingConfig, SpatialTilingConfig, TemporalTilingConfig
     # Tiling agresivo para reducir presión de VRAM en RTX 5080 16GB
     return TilingConfig(
-        spatial_config=SpatialTilingConfig(tile_size_in_pixels=128, tile_overlap_in_pixels=32),
+        spatial_config=SpatialTilingConfig(tile_size_in_pixels=512, tile_overlap_in_pixels=64),
         temporal_config=TemporalTilingConfig(tile_size_in_frames=16, tile_overlap_in_frames=8),
     )
 
@@ -473,6 +473,10 @@ class LTXFastVideoPipeline:
             strength = getattr(img, "strength", img.get("strength") if isinstance(img, dict) else 1.0)
             ltx_images.append(_LtxImageInput(path, frame_idx, strength))
 
+        # Dynamic VRAM detection to bypass PCIe streaming bottleneck
+        vram_gb = torch.cuda.get_device_properties(self._device).total_memory / (1024**3) if self._device.type == "cuda" else 0
+        prefetch_count = 0 if vram_gb >= 15.0 else 4
+
         with torch.inference_mode():
             return self.pipeline(
                 prompt=prompt,
@@ -483,7 +487,7 @@ class LTXFastVideoPipeline:
                 frame_rate=frame_rate,
                 images=ltx_images,
                 tiling_config=tiling_config,
-                streaming_prefetch_count=4,
+                streaming_prefetch_count=prefetch_count,
             )
 
 
@@ -555,41 +559,54 @@ class LTXDistilledGGUFVideoPipeline:
         from ltx_pipelines.utils.helpers import cleanup_memory
         from contextlib import contextmanager
 
-        self._fp8_cache = None
+        self._transformer_cache = None
         p = self.pipeline
         stage = p.stage
 
         if not hasattr(stage, "_transformer_ctx"):
             raise AttributeError("DiffusionStage has no attribute '_transformer_ctx'. GGUF caching is not compatible with this version of ltx-pipelines.")
 
-        def _ensure_cache(**kwargs: object) -> None:
-            if self._fp8_cache is not None:
-                logger.info("FP8 distilled: reusing CPU-resident cache")
+        def _ensure_cache(device: torch.device, **kwargs: object) -> None:
+            if self._transformer_cache is not None:
+                # Mover al dispositivo solicitado si es necesario
+                if next(self._transformer_cache.parameters()).device != device:
+                    self._transformer_cache.to(device)
                 return
-            transformer = stage._build_transformer(device=torch.device("cpu"), **kwargs)
+            
+            logger.info(f"GGUF transformer: construyendo cache directamente en {device} para máximo rendimiento")
+            transformer = stage._build_transformer(device=device, **kwargs)
             transformer.eval()
-            self._fp8_cache = transformer
-            logger.info("FP8 distilled: transformer built and cached in CPU RAM")
+            self._transformer_cache = transformer
 
         @contextmanager
         def _transformer_ctx(streaming_prefetch_count: int | None, **kwargs: object):
-            _ensure_cache(**kwargs)
-            assert self._fp8_cache is not None
-            prefetch = streaming_prefetch_count if streaming_prefetch_count is not None else 2
-            logger.info(f"FP8 distilled: streaming from CPU RAM (prefetch={prefetch})")
-            wrapped = LayerStreamingWrapper(
-                self._fp8_cache,
-                layers_attr="velocity_model.transformer_blocks",
-                target_device=stage._device,
-                prefetch_count=prefetch,
-            )
-            try:
-                yield wrapped
-            finally:
-                wrapped.teardown()
-                if os.environ.get("LTX_DISABLE_EMPTY_CACHE", "0") != "1":
-                    torch.cuda.empty_cache()
-                cleanup_memory()
+            # Si prefetch es <= 0, deshabilitamos streaming y corremos directo en GPU
+            if streaming_prefetch_count is not None and streaming_prefetch_count <= 0:
+                _ensure_cache(device=stage._device, **kwargs)
+                logger.info("FP8 distilled: Inferencia directa en VRAM (Streaming deshabilitado. ¡Súper rápido!)")
+                try:
+                    yield self._transformer_cache
+                finally:
+                    # Opcional: mover a CPU si hay agresivo offloading, pero por ahora lo dejamos en VRAM
+                    pass
+            else:
+                # Streaming tradicional (lento pero ahorra VRAM)
+                _ensure_cache(device=torch.device("cpu"), **kwargs)
+                prefetch = streaming_prefetch_count if streaming_prefetch_count is not None else 2
+                logger.info(f"FP8 distilled: Streaming desde CPU RAM (Lento, prefetch={prefetch})")
+                wrapped = LayerStreamingWrapper(
+                    self._transformer_cache,
+                    layers_attr="velocity_model.transformer_blocks",
+                    target_device=stage._device,
+                    prefetch_count=prefetch,
+                )
+                try:
+                    yield wrapped
+                finally:
+                    wrapped.teardown()
+                    if os.environ.get("LTX_DISABLE_EMPTY_CACHE", "0") != "1":
+                        torch.cuda.empty_cache()
+                    cleanup_memory()
 
         setattr(stage, "_transformer_ctx", _transformer_ctx)
         logger.debug("GGUF transformer cache installed on DiffusionStage._transformer_ctx")
@@ -604,6 +621,10 @@ class LTXDistilledGGUFVideoPipeline:
             strength = getattr(img, "strength", img.get("strength") if isinstance(img, dict) else 1.0)
             ltx_images.append(_LtxImageInput(path, frame_idx, strength))
 
+        # Dynamic VRAM detection to bypass PCIe streaming bottleneck
+        vram_gb = torch.cuda.get_device_properties(self._device).total_memory / (1024**3) if self._device.type == "cuda" else 0
+        prefetch_count = 0 if vram_gb >= 15.0 else 4
+
         with torch.inference_mode():
             result = self.pipeline(
                 prompt=prompt,
@@ -614,6 +635,6 @@ class LTXDistilledGGUFVideoPipeline:
                 frame_rate=frame_rate,
                 images=ltx_images,
                 tiling_config=tiling_config,
-                streaming_prefetch_count=4,
+                streaming_prefetch_count=prefetch_count,
             )
             return result
