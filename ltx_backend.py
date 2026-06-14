@@ -473,10 +473,6 @@ class LTXFastVideoPipeline:
             strength = getattr(img, "strength", img.get("strength") if isinstance(img, dict) else 1.0)
             ltx_images.append(_LtxImageInput(path, frame_idx, strength))
 
-        # Dynamic VRAM detection to bypass PCIe streaming bottleneck
-        vram_gb = torch.cuda.get_device_properties(self._device).total_memory / (1024**3) if self._device.type == "cuda" else 0
-        prefetch_count = 0 if vram_gb >= 15.0 else 4
-
         with torch.inference_mode():
             return self.pipeline(
                 prompt=prompt,
@@ -487,7 +483,7 @@ class LTXFastVideoPipeline:
                 frame_rate=frame_rate,
                 images=ltx_images,
                 tiling_config=tiling_config,
-                streaming_prefetch_count=prefetch_count,
+                streaming_prefetch_count=4,
             )
 
 
@@ -580,19 +576,20 @@ class LTXDistilledGGUFVideoPipeline:
 
         @contextmanager
         def _transformer_ctx(streaming_prefetch_count: int | None, **kwargs: object):
-            # Si prefetch es <= 0, deshabilitamos streaming y corremos directo en GPU
-            if streaming_prefetch_count is not None and streaming_prefetch_count <= 0:
+            # Dynamic VRAM check ONLY for the Transformer
+            vram_gb = torch.cuda.get_device_properties(stage._device).total_memory / (1024**3) if getattr(stage, "_device", torch.device("cpu")).type == "cuda" else 0
+
+            if vram_gb >= 15.0:
                 _ensure_cache(device=stage._device, **kwargs)
-                logger.info("FP8 distilled: Inferencia directa en VRAM (Streaming deshabilitado. ¡Súper rápido!)")
+                logger.info("FP8 distilled: Inferencia directa en VRAM (Streaming deshabilitado dinámicamente. ¡Súper rápido!)")
                 try:
                     yield self._transformer_cache
                 finally:
-                    # Opcional: mover a CPU si hay agresivo offloading, pero por ahora lo dejamos en VRAM
                     pass
             else:
                 # Streaming tradicional (lento pero ahorra VRAM)
                 _ensure_cache(device=torch.device("cpu"), **kwargs)
-                prefetch = streaming_prefetch_count if streaming_prefetch_count is not None else 2
+                prefetch = streaming_prefetch_count if streaming_prefetch_count is not None and streaming_prefetch_count > 0 else 2
                 logger.info(f"FP8 distilled: Streaming desde CPU RAM (Lento, prefetch={prefetch})")
                 wrapped = LayerStreamingWrapper(
                     self._transformer_cache,
@@ -621,10 +618,6 @@ class LTXDistilledGGUFVideoPipeline:
             strength = getattr(img, "strength", img.get("strength") if isinstance(img, dict) else 1.0)
             ltx_images.append(_LtxImageInput(path, frame_idx, strength))
 
-        # Dynamic VRAM detection to bypass PCIe streaming bottleneck
-        vram_gb = torch.cuda.get_device_properties(self._device).total_memory / (1024**3) if self._device.type == "cuda" else 0
-        prefetch_count = 0 if vram_gb >= 15.0 else 4
-
         with torch.inference_mode():
             result = self.pipeline(
                 prompt=prompt,
@@ -635,6 +628,6 @@ class LTXDistilledGGUFVideoPipeline:
                 frame_rate=frame_rate,
                 images=ltx_images,
                 tiling_config=tiling_config,
-                streaming_prefetch_count=prefetch_count,
+                streaming_prefetch_count=4,
             )
             return result
