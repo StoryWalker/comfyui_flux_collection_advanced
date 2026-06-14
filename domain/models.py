@@ -108,7 +108,7 @@ class FluxModelConfig:
     @property
     def clip_type_normalized(self) -> str:
         """ Normaliza clip_type para la API de ComfyUI """
-        return "flux" if self.clip_type in ["flux", "flux2"] else self.clip_type
+        return "flux" if self.clip_type in ["flux", "flux2", "ltx"] else self.clip_type
 
     def is_gguf(self, name: str) -> bool:
         return name.lower().endswith(".gguf")

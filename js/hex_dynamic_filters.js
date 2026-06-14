@@ -22,10 +22,13 @@ app.registerExtension({
                 
                 const updateLogic = () => {
                     const isFlux2 = baseTypeWidget.value === "flux2";
+                    const isLtx = baseTypeWidget.value === "ltx";
                     
                     // 1. Sincronizar clip_type
                     if (isFlux2) {
                         clipTypeWidget.value = "flux2";
+                    } else if (isLtx) {
+                        clipTypeWidget.value = "ltx";
                     } else if (baseTypeWidget.value === "flux") {
                         clipTypeWidget.value = "flux";
                     }
@@ -35,6 +38,15 @@ app.registerExtension({
                         // Solo dejar mistral
                         const filtered1 = node.originalClip1Options.filter(name => 
                             name.toLowerCase().includes("mistral")
+                        );
+                        clip1Widget.options.values = filtered1;
+                        if (!filtered1.includes(clip1Widget.value) && filtered1.length > 0) {
+                            clip1Widget.value = filtered1[0];
+                        }
+                    } else if (isLtx) {
+                        // Solo dejar t5
+                        const filtered1 = node.originalClip1Options.filter(name => 
+                            name.toLowerCase().includes("t5")
                         );
                         clip1Widget.options.values = filtered1;
                         if (!filtered1.includes(clip1Widget.value) && filtered1.length > 0) {
@@ -53,7 +65,7 @@ app.registerExtension({
 
                     // 3. Ocultar/Mostrar clip_name2
                     if (clip2Widget) {
-                        if (isFlux2) {
+                        if (isFlux2 || isLtx) {
                             clip2Widget.type = "hidden";
                             clip2Widget.value = "None";
                             if (clip2Widget.linked_widgets) clip2Widget.linked_widgets.forEach(w => w.type = "hidden");
@@ -88,6 +100,11 @@ app.registerExtension({
                                 baseTypeWidget.value = "flux2";
                                 updateLogic();
                             }
+                        } else if (val.includes("ltx")) {
+                            if (baseTypeWidget.value !== "ltx") {
+                                baseTypeWidget.value = "ltx";
+                                updateLogic();
+                            }
                         } else if (val.includes("flux1") || val.includes("flux-1")) {
                             if (baseTypeWidget.value !== "flux") {
                                 baseTypeWidget.value = "flux";
@@ -104,6 +121,8 @@ app.registerExtension({
                         const val = (unetWidget.value || "").toLowerCase();
                         if ((val.includes("flux2") || val.includes("flux-2")) && baseTypeWidget.value !== "flux2") {
                             baseTypeWidget.value = "flux2";
+                        } else if (val.includes("ltx") && baseTypeWidget.value !== "ltx") {
+                            baseTypeWidget.value = "ltx";
                         } else if ((val.includes("flux1") || val.includes("flux-1")) && baseTypeWidget.value !== "flux") {
                             baseTypeWidget.value = "flux";
                         }

@@ -43,12 +43,12 @@ class NVFP4NativeLoaderHex:
             "required": {
                 "section_model": ("STRING", {"default": "NVFP4 NATIVE"}),
                 "unet_name": (unet_list, {"tooltip": "NVFP4 UNET checkpoint (.safetensors oficial o convertido)"}),
-                "base_type": (["flux", "flux2"], {"default": "flux"}),
+                "base_type": (["flux", "flux2", "ltx"], {"default": "flux"}),
 
                 "section_clip": ("STRING", {"default": "CLIP ENCODERS"}),
                 "clip_name1": (clip_list1, {"tooltip": "Primary CLIP"}),
-                "clip_name2": (["None"] + clip_list2, {"tooltip": "Secondary CLIP (T5-XXL). None para Flux 2."}),
-                "clip_type": (["flux", "flux2"], {"default": "flux"}),
+                "clip_name2": (["None"] + clip_list2, {"tooltip": "Secondary CLIP (T5-XXL). None para Flux 2 / LTX."}),
+                "clip_type": (["flux", "flux2", "ltx"], {"default": "flux"}),
 
                 "section_vae": ("STRING", {"default": "VAE"}),
                 "vae_name": (vae_list, {"tooltip": "VAE estandar"}),
