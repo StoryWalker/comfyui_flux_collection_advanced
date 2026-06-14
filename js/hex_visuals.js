@@ -26,6 +26,9 @@ export const HEX_NODES = [
 	"WanVideoSaverDevHex",
 	"NVFP4NativeLoaderHex",
 	"ImageLoadEncodeHex",
+	"LTXLoaderHex",
+	"LTXSamplerHex",
+	"LTXVideoSaverHex",
 ];
 
 // Definición centralizada de settings — usada al registrar y al restaurar desde el nodo
