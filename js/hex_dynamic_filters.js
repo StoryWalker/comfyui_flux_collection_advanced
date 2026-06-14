@@ -44,9 +44,9 @@ app.registerExtension({
                             clip1Widget.value = filtered1[0];
                         }
                     } else if (isLtx) {
-                        // Solo dejar t5
+                        // Solo dejar gemma
                         const filtered1 = node.originalClip1Options.filter(name => 
-                            name.toLowerCase().includes("t5")
+                            name.toLowerCase().includes("gemma")
                         );
                         clip1Widget.options.values = filtered1;
                         if (!filtered1.includes(clip1Widget.value) && filtered1.length > 0) {
