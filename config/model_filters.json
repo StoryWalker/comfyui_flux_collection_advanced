@@ -17,16 +17,16 @@
   "NVFP4NativeLoaderHex": {
     "unet_name": {
       "include_extensions": [".safetensors"],
-      "include_keywords": ["nvfp4", "fp4", "e2m1"]
+      "include_keywords": ["nvfp4", "fp4", "e2m1", "ltx"]
     },
     "clip_name1": {
-      "include_keywords": ["clip", "l14", "mistral"]
+      "include_keywords": ["clip", "l14", "mistral", "gemma"]
     },
     "clip_name2": {
       "include_keywords": ["t5"]
     },
     "vae_name": {
-      "include_keywords": ["flux", "ae"]
+      "include_keywords": ["flux", "ae", "ltx"]
     }
   }
 }
